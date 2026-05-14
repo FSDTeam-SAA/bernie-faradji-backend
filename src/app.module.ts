@@ -13,7 +13,10 @@ import { CategoryModule } from './modules/category/category.module';
 import { InsuranceModule } from './modules/insurance/insurance.module';
 import { PlanModule } from './modules/plan/plan.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
-
+import { TokenModule } from './modules/token/token.module';
+import { PrizeModule } from './modules/prize/prize.module';
+import { JourneyModule } from './modules/journey/journey.module';
+// CategoryModule must be before JourneyModule
 
 @Module({
   imports: [
@@ -41,6 +44,9 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
     InsuranceModule,
     PlanModule,
     SubscriptionModule,
+    TokenModule,
+    PrizeModule,
+    JourneyModule,
   ],
   controllers: [AppController],
   providers: [
