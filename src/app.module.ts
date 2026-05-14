@@ -10,6 +10,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { CategoryModule } from './modules/category/category.module';
+import { InsuranceModule } from './modules/insurance/insurance.module';
+import { PlanModule } from './modules/plan/plan.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 
 @Module({
@@ -35,7 +38,9 @@ import { CategoryModule } from './modules/category/category.module';
     AuthModule,
     UserModule,
     CategoryModule,
-   
+    InsuranceModule,
+    PlanModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [
