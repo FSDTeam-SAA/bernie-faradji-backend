@@ -9,7 +9,7 @@ import { AppLogger } from './common/logger/app-logger.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    logger: ['error', 'warn', 'debug', 'verbose'],
+    rawBody: true, // 👈 required for Stripe webhook signature verification
   });
 
   const configService = app.get(ConfigService);
@@ -24,13 +24,12 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // for dto validation and transformation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      // forbidNonWhitelisted: false,
+      forbidNonWhitelisted: false,
       transform: true,
-      // transformOptions: { enableImplicitConversion: true },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 

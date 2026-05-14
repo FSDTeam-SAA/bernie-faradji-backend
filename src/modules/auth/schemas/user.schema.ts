@@ -18,6 +18,22 @@ export class Address {
 export const AddressSchema = SchemaFactory.createForClass(Address);
 
 
+// ─── Subscription Sub-document ────────────────────────
+@Schema({ _id: false })
+export class Subscription {
+  @Prop({ type: Types.ObjectId, ref: 'Plan', default: null })
+  planId: Types.ObjectId;
+
+  @Prop({ default: null })
+  startDate: Date;
+
+  @Prop({ default: null })
+  endDate: Date | null;
+}
+
+export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);
+
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true }) name: string;
@@ -27,7 +43,7 @@ export class User {
 
   @Prop({ required: true, select: false }) password: string;
 
-  @Prop({ trim: true })   username?: string;
+  @Prop({ trim: true })    username?: string;
   @Prop({ default: null }) dob?: Date;
   @Prop({ default: null }) phone?: string;
 
@@ -41,9 +57,9 @@ export class User {
   @Prop({ default: '' })   bio?: string;
   @Prop({ type: AddressSchema, default: () => ({}) }) address?: Address;
 
-  @Prop({ default: '' })               profileImage?: string;
+  @Prop({ default: '' })                profileImage?: string;
   @Prop({ type: [String], default: [] }) multiProfileImage: string[];
-  @Prop({ default: '' })               pdfFile?: string;
+  @Prop({ default: '' })                pdfFile?: string;
 
   @Prop({ default: null })  otp?: string;
   @Prop({ default: null })  otpExpires?: Date;
@@ -56,18 +72,22 @@ export class User {
   @Prop({ default: false }) hasActiveSubscription: boolean;
   @Prop({ default: null })  subscriptionExpireDate?: Date;
 
+  // ─── Subscription details ──────────────────────────
+  @Prop({ type: SubscriptionSchema, default: null })
+  subscription: Subscription;
+
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   blockedUsers: Types.ObjectId[];
 
   @Prop({ default: 'en' }) language: string;
 
-  comparePassword:    (plain: string) => Promise<boolean>;
+  comparePassword:      (plain: string) => Promise<boolean>;
   generateAccessToken:  (payload: object, secret: string, expiresIn: string) => string;
   generateRefreshToken: (payload: object, secret: string, expiresIn: string) => string;
 }
 
 export const UserSchema  = SchemaFactory.createForClass(User);
-export type UserDocument = HydratedDocument<User>;   // This is similer to IUser interface but with added methods and properties from Mongoose like _id, save(), etc.
+export type UserDocument = HydratedDocument<User>;
 
 
 UserSchema.pre('save', async function (next) {
