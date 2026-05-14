@@ -78,8 +78,9 @@ export class SubscriptionService {
         this.configService.get<string>('STRIPE_WEBHOOK_SECRET'),
       );
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       throw new HttpException(
-        `Webhook Error: ${err.message}`,
+        `Webhook Error: ${message}`,
         HttpStatus.BAD_REQUEST,
       );
     }
