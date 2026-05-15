@@ -16,4 +16,5 @@ import { AuthModule } from '../auth/auth.module';
   providers: [InsuranceService],
   exports: [InsuranceService, MongooseModule],
 })
+
 export class InsuranceModule {}

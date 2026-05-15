@@ -14,10 +14,11 @@ import { PrizeModule } from '../prize/prize.module';
       { name: Winner.name, schema: WinnerSchema },
     ]),
     AuthModule,
-    PrizeModule, // gives PrizeModel for winner selection
+    PrizeModule, 
   ],
   controllers: [TokenController],
   providers: [TokenService],
   exports: [TokenService, MongooseModule],
 })
+
 export class TokenModule {}

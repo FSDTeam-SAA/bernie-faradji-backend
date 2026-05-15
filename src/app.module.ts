@@ -16,7 +16,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { TokenModule } from './modules/token/token.module';
 import { PrizeModule } from './modules/prize/prize.module';
 import { JourneyModule } from './modules/journey/journey.module';
-// CategoryModule must be before JourneyModule
+
 
 @Module({
   imports: [
@@ -54,5 +54,6 @@ import { JourneyModule } from './modules/journey/journey.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
+
 
 export class AppModule {}

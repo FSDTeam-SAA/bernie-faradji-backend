@@ -8,12 +8,13 @@ import { EmailModule } from '../../infrastructure/email/email.module';
 
 @Module({
   imports: [
-    AuthModule,   // gives UserModel
-    PlanModule,   // gives PlanModel
+    AuthModule,   
+    PlanModule,  
     EmailModule,
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],
   exports: [SubscriptionService],
 })
+
 export class SubscriptionModule {}

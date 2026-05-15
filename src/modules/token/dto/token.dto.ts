@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsMongoId } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export const TOKEN_PRICE = 5; // £5 per token (hardcoded)
+export const TOKEN_PRICE = 5; 
 
 export class BuyTokenDto {
   @Transform(({ value }) => parseInt(value))

@@ -19,10 +19,10 @@ export class Journey {
   categoryPrice: number; // snapshot of category price at time of purchase
 
   @Prop({ default: 0 })
-  lateFee: number; // 0 if no late fee applied
+  lateFee: number; 
 
   @Prop({ required: true })
-  totalPrice: number; // categoryPrice + lateFee
+  totalPrice: number; 
 
   @Prop({ default: false })
   isLateFeeApplied: boolean;
