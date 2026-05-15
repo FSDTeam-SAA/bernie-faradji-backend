@@ -1,4 +1,3 @@
-
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CategoryController } from './category.controller';
@@ -17,6 +16,7 @@ import { CloudinaryModule } from '../../infrastructure/cloudinary/cloudinary.mod
   ],
   controllers: [CategoryController],
   providers: [CategoryService],
-  exports: [CategoryService, MongooseModule], // export so other modules can ref Category model
+  exports: [CategoryService, MongooseModule], 
 })
+
 export class CategoryModule {}

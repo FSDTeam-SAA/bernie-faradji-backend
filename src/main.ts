@@ -9,7 +9,7 @@ import { AppLogger } from './common/logger/app-logger.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    rawBody: true, // 👈 required for Stripe webhook signature verification
+    rawBody: true, // required for Stripe webhook signature verification
   });
 
   const configService = app.get(ConfigService);

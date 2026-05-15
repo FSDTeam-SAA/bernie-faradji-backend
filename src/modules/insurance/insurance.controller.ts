@@ -23,6 +23,7 @@ import {
   GetInsuranceQueryDto,
 } from './dto/insurance.dto';
 
+
 @Controller('insurances')
 @UseGuards(JwtAuthGuard)
 export class InsuranceController {

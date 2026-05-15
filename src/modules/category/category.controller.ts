@@ -1,5 +1,3 @@
-
-
 import {
   Controller,
   Get,
@@ -31,7 +29,8 @@ import {
   GetCategoriesQueryDto,
 } from './dto/category.dto';
 
-// ─── Multer disk storage (same pattern as boilerplate) ────
+
+// ─── Multer disk storage ────
 const multerStorage = diskStorage({
   destination: (req, file, cb) => {
     const folder = 'uploads/images';
@@ -43,6 +42,7 @@ const multerStorage = diskStorage({
     cb(null, uniqueName);
   },
 });
+
 
 @Controller('categories')
 export class CategoryController {

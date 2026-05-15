@@ -13,6 +13,7 @@ import {
   GetInsuranceQueryDto,
 } from './dto/insurance.dto';
 
+
 @Injectable()
 export class InsuranceService {
   constructor(
