@@ -17,7 +17,7 @@ import { TokenModule } from './modules/token/token.module';
 import { PrizeModule } from './modules/prize/prize.module';
 import { JourneyModule } from './modules/journey/journey.module';
 import { AdminModule } from './modules/admin/admin.module';
-
+import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
 import { MembershipModule } from './modules/membership/membership.module';
 // add MembershipModule — must be before SubscriptionModule
 
@@ -52,6 +52,7 @@ import { MembershipModule } from './modules/membership/membership.module';
     JourneyModule,
     AdminModule,
     MembershipModule,
+    UserDashboardModule,
   ],
   controllers: [AppController],
   providers: [
