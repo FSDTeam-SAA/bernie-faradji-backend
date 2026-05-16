@@ -153,10 +153,16 @@ export class TokenService {
       tokenPrice: TOKEN_PRICE,
     }));
 
+    const winner = await this.winnerModel
+      .findOne({ isActive: true })
+      .populate('userId', 'name email')
+      .populate('tokenId');
+
     return {
       message: 'Your tokens fetched successfully',
       meta: createMeta(page, limit, total),
       data: {
+        winner: winner || null,
         tokens: result,
         paginationInfo: createPaginationInfo(page, limit, total),
       },

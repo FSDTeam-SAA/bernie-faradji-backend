@@ -236,6 +236,37 @@ export class JourneyService {
 
     const filter: any = { userId, paymentStatus: 'PAID' };
 
+    if (query.status && query.status.trim()) {
+      const status = query.status.trim().toUpperCase();
+      if (status !== 'ALL') {
+        filter.journeyStatus = status;
+      }
+    }
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+      const matchedCategories = await this.categoryModel
+        .find({ name: regex })
+        .select('_id')
+        .limit(50);
+
+      const categoryIds = matchedCategories.map((c) => c._id);
+
+      filter.$or = [{ vehicleNumber: regex }];
+      if (categoryIds.length) {
+        filter.$or.push({ categoryId: { $in: categoryIds } });
+      }
+    }
+
+    if (query.date) {
+      const date    = new Date(query.date);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      filter.createdAt = { $gte: date, $lt: nextDay };
+    }
+
     const total    = await this.journeyModel.countDocuments(filter);
     const journeys = await this.journeyModel
       .find(filter)
