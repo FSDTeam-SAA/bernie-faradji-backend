@@ -1,7 +1,8 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Plan, PlanDocument } from './schemas/plan.schema';
+import { User, UserDocument } from '../auth/schemas/user.schema';
 import {
   createFilter,
   createMeta,
@@ -16,8 +17,8 @@ import {
 @Injectable()
 export class PlanService {
   constructor(
-    @InjectModel(Plan.name)
-    private readonly planModel: Model<PlanDocument>,
+    @InjectModel(Plan.name) private readonly planModel: Model<PlanDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
   // ─── Create ────────────────────────────────────────────
@@ -39,23 +40,35 @@ export class PlanService {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    // attach subscriber count to each plan
+    const plansWithSubscribers = await Promise.all(
+      plans.map(async (plan) => {
+        const subscribers = await this.userModel.countDocuments({
+          'subscription.planId': plan._id,
+          hasActiveSubscription: true,
+        });
+        return { ...plan.toObject(), subscribers };
+      }),
+    );
+
     return {
       message: 'Plans fetched successfully',
       meta: createMeta(page, limit, total),
-      data: {
-        plans,
-        paginationInfo: createPaginationInfo(page, limit, total),
-      },
+      data: { plans: plansWithSubscribers, paginationInfo: createPaginationInfo(page, limit, total) },
     };
   }
 
   // ─── Get Single ────────────────────────────────────────
   async getOne(id: string) {
     const plan = await this.planModel.findById(id);
-    if (!plan) {
-      throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
-    }
-    return { message: 'Plan fetched successfully', data: plan };
+    if (!plan) throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
+
+    const subscribers = await this.userModel.countDocuments({
+      'subscription.planId': new Types.ObjectId(id),
+      hasActiveSubscription: true,
+    });
+
+    return { message: 'Plan fetched successfully', data: { ...plan.toObject(), subscribers } };
   }
 
   // ─── Update ────────────────────────────────────────────

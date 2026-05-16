@@ -8,7 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Plan.name, schema: PlanSchema }]),
-    AuthModule,
+    AuthModule, // gives UserModel for subscriber count
   ],
   controllers: [PlanController],
   providers: [PlanService],

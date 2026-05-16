@@ -16,6 +16,8 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { TokenModule } from './modules/token/token.module';
 import { PrizeModule } from './modules/prize/prize.module';
 import { JourneyModule } from './modules/journey/journey.module';
+import { AdminModule } from './modules/admin/admin.module';
+
 
 
 @Module({
@@ -47,6 +49,7 @@ import { JourneyModule } from './modules/journey/journey.module';
     TokenModule,
     PrizeModule,
     JourneyModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

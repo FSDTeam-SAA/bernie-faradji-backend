@@ -5,7 +5,6 @@ import { Model } from 'mongoose';
 import Stripe from 'stripe';
 import { Token, TokenDocument } from './schemas/token.schema';
 import { Winner, WinnerDocument } from './schemas/winner.schema';
-import { Prize, PrizeDocument } from '../prize/schemas/prize.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
 import {
   createFilter,
@@ -24,13 +23,15 @@ export class TokenService {
   private stripe: Stripe.Stripe;
 
   constructor(
-    @InjectModel(Token.name)  private readonly tokenModel:  Model<TokenDocument>,
-    @InjectModel(Winner.name) private readonly winnerModel: Model<WinnerDocument>,
-    @InjectModel(Prize.name)  private readonly prizeModel:  Model<PrizeDocument>,
-    @InjectModel(User.name)   private readonly userModel:   Model<UserDocument>,
+    @InjectModel(Token.name) private readonly tokenModel: Model<TokenDocument>,
+    @InjectModel(Winner.name)
+    private readonly winnerModel: Model<WinnerDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
   ) {
-    this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY'));
+    this.stripe = new Stripe(
+      this.configService.get<string>('STRIPE_SECRET_KEY'),
+    );
   }
 
   // ─── User: Create Stripe Checkout for Tokens ──────────
@@ -38,13 +39,14 @@ export class TokenService {
     const user = await this.userModel.findById(userId);
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
-    const totalPrice   = dto.quantity * TOKEN_PRICE;
+    const totalPrice = dto.quantity * TOKEN_PRICE;
     const priceInCents = Math.round(totalPrice * 100);
 
+    // create pending token record
     const token = await this.tokenModel.create({
       userId,
       vehicleNumber: dto.vehicleNumber,
-      quantity:      dto.quantity,
+      quantity: dto.quantity,
       totalPrice,
       paymentStatus: 'PENDING',
     });
@@ -58,7 +60,7 @@ export class TokenService {
           price_data: {
             currency: 'gbp',
             product_data: {
-              name:        `BubbleDrive Tokens x${dto.quantity}`,
+              name: `BubbleDrive Tokens x${dto.quantity}`,
               description: `Vehicle: ${dto.vehicleNumber}`,
             },
             unit_amount: priceInCents,
@@ -67,15 +69,16 @@ export class TokenService {
         },
       ],
       metadata: {
-        userId:        userId.toString(),
-        tokenId:       token._id.toString(),
+        userId: userId.toString(),
+        tokenId: token._id.toString(),
         vehicleNumber: dto.vehicleNumber,
-        quantity:      dto.quantity.toString(),
+        quantity: dto.quantity.toString(),
       },
       success_url: `${this.configService.get('app.frontendUrl')}/token-success`,
-      cancel_url:  `${this.configService.get('app.frontendUrl')}/token-cancel`,
+      cancel_url: `${this.configService.get('app.frontendUrl')}/token-cancel`,
     });
 
+    // save stripeSessionId on token record
     await this.tokenModel.findByIdAndUpdate(token._id, {
       stripeSessionId: session.id,
     });
@@ -93,9 +96,12 @@ export class TokenService {
         signature,
         this.configService.get<string>('STRIPE_WEBHOOK_SECRET_TOKEN'),
       );
-    } catch (err) {
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new HttpException(`Webhook Error: ${message}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `Webhook Error: ${message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (event.type === 'checkout.session.completed') {
@@ -120,20 +126,58 @@ export class TokenService {
     return { received: true };
   }
 
-  // ─── Admin: Get All Token Purchases ───────────────────
-  async getAllTokens(query: GetTokensQueryDto) {
-    const page  = Number(query.page  || 1);
+  // ─── User: My Tokens ──────────────────────────────────
+  async getMyTokens(userId: string, query: GetTokensQueryDto) {
+    const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
 
-    const filter: any = { paymentStatus: 'PAID' };
+    const filter: any = { userId, paymentStatus: 'PAID' };
     if (query.date) {
-      const date    = new Date(query.date);
+      const date = new Date(query.date);
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
       filter.createdAt = { $gte: date, $lt: nextDay };
     }
 
-    const total  = await this.tokenModel.countDocuments(filter);
+    const total = await this.tokenModel.countDocuments(filter);
+    const tokens = await this.tokenModel
+      .find(filter)
+      .select('quantity totalPrice vehicleNumber createdAt')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // attach hardcoded token price for frontend display
+    const result = tokens.map((t) => ({
+      ...t.toObject(),
+      tokenPrice: TOKEN_PRICE,
+    }));
+
+    return {
+      message: 'Your tokens fetched successfully',
+      meta: createMeta(page, limit, total),
+      data: {
+        tokens: result,
+        paginationInfo: createPaginationInfo(page, limit, total),
+      },
+    };
+  }
+
+  // ─── Admin: Get All Token Purchases ───────────────────
+  async getAllTokens(query: GetTokensQueryDto) {
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 10);
+
+    // search by vehicle number or join user name/email via populate
+    const filter: any = { paymentStatus: 'PAID' };
+    if (query.date) {
+      const date = new Date(query.date);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      filter.createdAt = { $gte: date, $lt: nextDay };
+    }
+
+    const total = await this.tokenModel.countDocuments(filter);
     const tokens = await this.tokenModel
       .find(filter)
       .populate('userId', 'name email')
@@ -144,21 +188,26 @@ export class TokenService {
     return {
       message: 'Tokens fetched successfully',
       meta: createMeta(page, limit, total),
-      data: { tokens, paginationInfo: createPaginationInfo(page, limit, total) },
+      data: {
+        tokens,
+        paginationInfo: createPaginationInfo(page, limit, total),
+      },
     };
   }
 
   // ─── Admin: Auto Select Winner ─────────────────────────
   async autoSelectWinner() {
+    // get all PAID token records — each record = one entry in the pool
     const allTokens = await this.tokenModel
       .find({ paymentStatus: 'PAID' })
-      .populate('userId', 'name email phone profileImage');
+      .populate('userId', 'name email');
 
     if (!allTokens.length) {
       throw new HttpException('No token purchases found', HttpStatus.NOT_FOUND);
     }
 
-    const randomIndex  = Math.floor(Math.random() * allTokens.length);
+    // random pick from all entries (more purchases = more chances)
+    const randomIndex = Math.floor(Math.random() * allTokens.length);
     const winningToken = allTokens[randomIndex];
 
     return this.saveWinner(winningToken, 'AUTO');
@@ -168,7 +217,7 @@ export class TokenService {
   async manualSelectWinner(dto: SelectWinnerManualDto) {
     const token = await this.tokenModel
       .findOne({ _id: dto.tokenId, paymentStatus: 'PAID' })
-      .populate('userId', 'name email phone profileImage');
+      .populate('userId', 'name email');
 
     if (!token) {
       throw new HttpException('Token purchase not found', HttpStatus.NOT_FOUND);
@@ -177,35 +226,20 @@ export class TokenService {
     return this.saveWinner(token, 'MANUAL');
   }
 
-  // ─── Save Winner (with active prize) ──────────────────
+  // ─── Save Winner to DB ─────────────────────────────────
   private async saveWinner(token: any, selectionType: 'AUTO' | 'MANUAL') {
-    // get currently active prize — required before selecting winner
-    const activePrize = await this.prizeModel.findOne({ isActive: true });
-    if (!activePrize) {
-      throw new HttpException(
-        'No active prize found. Please activate a prize before selecting a winner.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     // deactivate previous winner
     await this.winnerModel.updateMany({}, { isActive: false });
 
     const winner = await this.winnerModel.create({
-      userId:        token.userId._id || token.userId,
-      tokenId:       token._id,
-      prizeId:       activePrize._id,
+      userId: token.userId._id || token.userId,
+      tokenId: token._id,
       vehicleNumber: token.vehicleNumber,
       selectionType,
-      isActive:      true,
+      isActive: true,
     });
 
-    // populate all — user + token + prize
-    const populated = await this.winnerModel
-      .findById(winner._id)
-      .populate('userId',  'name email phone profileImage')
-      .populate('tokenId', 'quantity totalPrice vehicleNumber createdAt')
-      .populate('prizeId', 'prizeTag');
+    const populated = await winner.populate('userId', 'name email');
 
     return {
       message: `Winner selected ${selectionType === 'AUTO' ? 'automatically' : 'manually'}`,
@@ -217,9 +251,8 @@ export class TokenService {
   async getCurrentWinner() {
     const winner = await this.winnerModel
       .findOne({ isActive: true })
-      .populate('userId',  'name email phone profileImage')
-      .populate('tokenId', 'quantity totalPrice vehicleNumber createdAt')
-      .populate('prizeId', 'prizeTag');
+      .populate('userId', 'name email')
+      .populate('tokenId');
 
     return {
       message: winner ? 'Current winner fetched' : 'No winner selected yet',
@@ -229,15 +262,14 @@ export class TokenService {
 
   // ─── Get Winner History ────────────────────────────────
   async getWinnerHistory(query: GetTokensQueryDto) {
-    const page  = Number(query.page  || 1);
+    const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
 
-    const total   = await this.winnerModel.countDocuments();
+    const total = await this.winnerModel.countDocuments();
     const winners = await this.winnerModel
       .find()
-      .populate('userId',  'name email phone profileImage')
-      .populate('tokenId', 'quantity totalPrice vehicleNumber createdAt')
-      .populate('prizeId', 'prizeTag')
+      .populate('userId', 'name email')
+      .populate('tokenId')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -245,7 +277,10 @@ export class TokenService {
     return {
       message: 'Winner history fetched successfully',
       meta: createMeta(page, limit, total),
-      data: { winners, paginationInfo: createPaginationInfo(page, limit, total) },
+      data: {
+        winners,
+        paginationInfo: createPaginationInfo(page, limit, total),
+      },
     };
   }
 }

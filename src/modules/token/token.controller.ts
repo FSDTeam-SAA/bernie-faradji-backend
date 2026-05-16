@@ -58,6 +58,15 @@ export class TokenController {
     return this.tokenService.getCurrentWinner();
   }
 
+  // ─── User: My Tokens ──────────────────────────────────
+  @Get('my-tokens')
+  getMyTokens(
+    @CurrentUser('_id') userId: string,
+    @Query() query: GetTokensQueryDto,
+  ) {
+    return this.tokenService.getMyTokens(userId, query);
+  }
+
   // ─── Admin: Get All Token Purchases ───────────────────
   @UseGuards(RolesGuard)
   @Roles(RoleType.ADMIN)
@@ -85,7 +94,8 @@ export class TokenController {
   }
 
   // ─── Admin: Winner History ────────────────────────────
-  @Public()
+  @UseGuards(RolesGuard)
+  @Roles(RoleType.ADMIN)
   @Get('winner/history')
   getWinnerHistory(@Query() query: GetTokensQueryDto) {
     return this.tokenService.getWinnerHistory(query);
