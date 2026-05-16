@@ -79,17 +79,55 @@ export class MembershipService {
   }
 
   // ─── User: My Membership ──────────────────────────────
-  async getMyMembership(userId: string) {
+  async getMyMembership(userOrUserId: any) {
+    const userId =
+      userOrUserId?._id?.toString?.() ??
+      userOrUserId?._id ??
+      userOrUserId?.id ??
+      userOrUserId;
+
     // auto expire first
     await this.membershipModel.updateMany(
       { userId, endDate: { $lt: new Date() }, status: { $nin: ['EXPIRED'] } },
       { status: 'EXPIRED' },
     );
 
-    const membership = await this.membershipModel
+    let membership = await this.membershipModel
       .findOne({ userId })
       .populate('planId', 'planName price billingCycle packageIncludes')
       .sort({ createdAt: -1 });
+
+    // Back-compat: user marked as paid but membership record missing
+    if (
+      !membership &&
+      userOrUserId &&
+      typeof userOrUserId === 'object' &&
+      userOrUserId.hasActiveSubscription &&
+      userOrUserId.subscription?.planId
+    ) {
+      const startDate = userOrUserId.subscription?.startDate
+        ? new Date(userOrUserId.subscription.startDate)
+        : new Date();
+
+      const endDate =
+        userOrUserId.subscription?.endDate === null ||
+        userOrUserId.subscription?.endDate === undefined
+          ? null
+          : new Date(userOrUserId.subscription.endDate);
+
+      await this.membershipModel.create({
+        userId,
+        planId: userOrUserId.subscription.planId,
+        startDate,
+        endDate,
+        status: 'ACTIVE',
+      });
+
+      membership = await this.membershipModel
+        .findOne({ userId })
+        .populate('planId', 'planName price billingCycle packageIncludes')
+        .sort({ createdAt: -1 });
+    }
 
     return {
       message: membership ? 'Membership fetched successfully' : 'No membership found',
@@ -112,7 +150,7 @@ export class MembershipService {
       planId,
       startDate,
       endDate,
-      status: 'PENDING',
+      status: 'ACTIVE',
     });
 
     return membership;
