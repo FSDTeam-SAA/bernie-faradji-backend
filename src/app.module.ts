@@ -18,7 +18,8 @@ import { PrizeModule } from './modules/prize/prize.module';
 import { JourneyModule } from './modules/journey/journey.module';
 import { AdminModule } from './modules/admin/admin.module';
 
-
+import { MembershipModule } from './modules/membership/membership.module';
+// add MembershipModule — must be before SubscriptionModule
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AdminModule } from './modules/admin/admin.module';
     PrizeModule,
     JourneyModule,
     AdminModule,
+    MembershipModule,
   ],
   controllers: [AppController],
   providers: [

@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { User, UserDocument } from '../auth/schemas/user.schema';
 import { Plan, PlanDocument } from '../plan/schemas/plan.schema';
 import { EmailService } from '../../infrastructure/email/email.service';
+import { MembershipService } from '../membership/membership.service';
 import {
   createFilter,
   createMeta,
@@ -23,6 +24,7 @@ export class SubscriptionService {
     @InjectModel(Plan.name) private readonly planModel: Model<PlanDocument>,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly membershipService: MembershipService,
   ) {
     this.stripe = new Stripe(
       this.configService.get<string>('STRIPE_SECRET_KEY'),
@@ -124,6 +126,9 @@ export class SubscriptionService {
       user.subscriptionExpireDate = endDate;
 
       await user.save();
+
+      // ── Create membership record ──
+      await this.membershipService.createFromWebhook(userId, planId, startDate, endDate);
 
       // ── Send confirmation email ──
       try {
