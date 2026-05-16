@@ -43,5 +43,9 @@ export class GetJourneysQueryDto {
 
   @IsOptional()
   @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
   date?: string;
 }
