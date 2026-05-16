@@ -19,16 +19,19 @@ export class Journey {
   categoryPrice: number; // snapshot of category price at time of purchase
 
   @Prop({ default: 0 })
-  lateFee: number; 
+  lateFee: number; // 0 if no late fee applied
 
   @Prop({ required: true })
-  totalPrice: number; 
+  totalPrice: number; // categoryPrice + lateFee
 
   @Prop({ default: false })
   isLateFeeApplied: boolean;
 
   @Prop({ default: 'PENDING' }) // PENDING | PAID | FAILED
   paymentStatus: string;
+
+  @Prop({ default: 'PENDING' }) // PENDING | CLEARED (admin manages this)
+  journeyStatus: string;
 
   @Prop({ default: null })
   stripeSessionId: string;

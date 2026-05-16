@@ -45,7 +45,7 @@ export class User {
 
   @Prop({ trim: true })    username?: string;
   @Prop({ default: null }) dob?: Date;
-  @Prop({ default: null }) phone?: string;
+  @Prop({ default: null }) vehicleNumber?: string;
 
   @Prop({ enum: ['male', 'female', 'other'], default: 'male' })
   gender: string;

@@ -24,7 +24,7 @@ export class JourneyService {
     @InjectModel(User.name)      private readonly userModel:     Model<UserDocument>,
     private readonly configService: ConfigService,
   ) {
-    this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY'));
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
 
   // ─── Check Late Fee Logic ──────────────────────────────
@@ -145,7 +145,7 @@ export class JourneyService {
       event = this.stripe.webhooks.constructEvent(
         rawBody,
         signature,
-        this.configService.get<string>('STRIPE_WEBHOOK_SECRET_JOURNEY'),
+        process.env.STRIPE_WEBHOOK_SECRET_JOURNEY,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -174,6 +174,32 @@ export class JourneyService {
     return { received: true };
   }
 
+  // ─── Admin: Get Single Journey ────────────────────────
+  async getOne(id: string) {
+    const journey = await this.journeyModel
+      .findById(id)
+      .populate('userId',     'name email')
+      .populate('categoryId', 'name icon rateActual rateDiscounted');
+    if (!journey) throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
+    return { message: 'Journey fetched successfully', data: journey };
+  }
+
+  // ─── Admin: Update Journey Status ─────────────────────
+  async updateStatus(id: string, status: string) {
+    const allowed = ['PENDING', 'CLEARED'];
+    if (!allowed.includes(status)) {
+      throw new HttpException(`Status must be one of: ${allowed.join(', ')}`, HttpStatus.BAD_REQUEST);
+    }
+    const journey = await this.journeyModel.findByIdAndUpdate(
+      id,
+      { journeyStatus: status },
+      { new: true },
+    ).populate('userId', 'name email')
+     .populate('categoryId', 'name');
+    if (!journey) throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
+    return { message: 'Journey status updated successfully', data: journey };
+  }
+
   // ─── Admin: Get All Journeys ───────────────────────────
   async getAllJourneys(query: GetJourneysQueryDto) {
     const page  = Number(query.page  || 1);
@@ -191,7 +217,7 @@ export class JourneyService {
     const journeys = await this.journeyModel
       .find(filter)
       .populate('userId',     'name email')
-      .populate('categoryId', 'name icon')
+      .populate('categoryId', 'name icon rateActual rateDiscounted')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);

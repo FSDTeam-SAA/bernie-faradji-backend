@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Body,
+  Param,
   Query,
   UseGuards,
   Headers,
@@ -78,5 +79,24 @@ export class JourneyController {
   @Get('all')
   getAllJourneys(@Query() query: GetJourneysQueryDto) {
     return this.journeyService.getAllJourneys(query);
+  }
+
+  // ─── Admin: Get Single Journey ────────────────────────
+  @UseGuards(RolesGuard)
+  @Roles(RoleType.ADMIN)
+  @Get(':id')
+  getOne(@Param('id') id: string) {
+    return this.journeyService.getOne(id);
+  }
+
+  // ─── Admin: Update Journey Status ─────────────────────
+  @UseGuards(RolesGuard)
+  @Roles(RoleType.ADMIN)
+  @Put(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
+    return this.journeyService.updateStatus(id, status);
   }
 }

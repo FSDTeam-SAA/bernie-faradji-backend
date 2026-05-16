@@ -21,18 +21,40 @@ export class UserService {
 
   // ─── Admin ──────────
   async getAllUsers(query: GetUsersQueryDto) {
-    const page = Number(query.page || 1);
+    const page  = Number(query.page  || 1);
     const limit = Number(query.limit || 10);
     const filter = createFilter(query.search, query.date);
-    filter.role = RoleType.USER;
+    filter.role  = RoleType.USER;
 
     const total = await this.userModel.countDocuments(filter);
-    const users = await this.userModel
-      .find(filter)
-      .select(SELECT_FIELDS)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+
+    const users = await this.userModel.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      // lookup latest journey vehicle number
+      {
+        $lookup: {
+          from:         'journeys',
+          localField:   '_id',
+          foreignField: 'userId',
+          pipeline: [
+            { $match: { paymentStatus: 'PAID' } },
+            { $sort:  { createdAt: -1 } },
+            { $limit: 1 },
+            { $project: { vehicleNumber: 1 } },
+          ],
+          as: 'latestJourney',
+        },
+      },
+      {
+        $addFields: {
+          vehicleNumber: { $arrayElemAt: ['$latestJourney.vehicleNumber', 0] },
+        },
+      },
+      { $unset: ['latestJourney', 'password', 'refreshToken', '__v'] },
+    ]);
 
     return {
       message: 'Users fetched successfully',
