@@ -24,8 +24,8 @@ export class MembershipController {
 
   // ─── User: My Membership ──────────────────────────────
   @Get('my')
-  getMyMembership(@CurrentUser('_id') userId: string) {
-    return this.membershipService.getMyMembership(userId);
+  getMyMembership(@CurrentUser() user: any) {
+    return this.membershipService.getMyMembership(user);
   }
 
   // ─── Admin: Get All ───────────────────────────────────
