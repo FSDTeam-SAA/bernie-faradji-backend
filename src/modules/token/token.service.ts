@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { Token, TokenDocument } from './schemas/token.schema';
 import { Winner, WinnerDocument } from './schemas/winner.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
+import { Prize, PrizeDocument } from '../prize/schemas/prize.schema';
 import {
   createFilter,
   createMeta,
@@ -22,13 +23,14 @@ import {
 export class TokenService {
   private stripe: Stripe.Stripe;
 
-  constructor(
-    @InjectModel(Token.name) private readonly tokenModel: Model<TokenDocument>,
-    @InjectModel(Winner.name)
-    private readonly winnerModel: Model<WinnerDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly configService: ConfigService,
-  ) {
+constructor(
+  @InjectModel(Token.name) private readonly tokenModel: Model<TokenDocument>,
+  @InjectModel(Winner.name)
+  private readonly winnerModel: Model<WinnerDocument>,
+  @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+  @InjectModel(Prize.name) private readonly prizeModel: Model<PrizeDocument>,
+  private readonly configService: ConfigService,
+) {
     this.stripe = new Stripe(
       this.configService.get<string>('STRIPE_SECRET_KEY'),
     );
@@ -153,10 +155,11 @@ export class TokenService {
       tokenPrice: TOKEN_PRICE,
     }));
 
-    const winner = await this.winnerModel
-      .findOne({ isActive: true })
-      .populate('userId', 'name email')
-      .populate('tokenId');
+ const winner = await this.winnerModel
+  .findOne({ isActive: true })
+  .populate('userId', 'name email')
+  .populate('tokenId')
+  .populate('prizeId', 'prizeTag isActive');
 
     return {
       message: 'Your tokens fetched successfully',
@@ -233,25 +236,30 @@ export class TokenService {
   }
 
   // ─── Save Winner to DB ─────────────────────────────────
-  private async saveWinner(token: any, selectionType: 'AUTO' | 'MANUAL') {
-    // deactivate previous winner
-    await this.winnerModel.updateMany({}, { isActive: false });
+private async saveWinner(token: any, selectionType: 'AUTO' | 'MANUAL') {
+  await this.winnerModel.updateMany({}, { isActive: false });
 
-    const winner = await this.winnerModel.create({
-      userId: token.userId._id || token.userId,
-      tokenId: token._id,
-      vehicleNumber: token.vehicleNumber,
-      selectionType,
-      isActive: true,
-    });
+  const activePrize = await this.prizeModel.findOne({ isActive: true });
 
-    const populated = await winner.populate('userId', 'name email');
+  const winner = await this.winnerModel.create({
+    userId: token.userId._id || token.userId,
+    tokenId: token._id,
+    prizeId: activePrize?._id || null,
+    vehicleNumber: token.vehicleNumber,
+    selectionType,
+    isActive: true,
+  });
 
-    return {
-      message: `Winner selected ${selectionType === 'AUTO' ? 'automatically' : 'manually'}`,
-      data: populated,
-    };
-  }
+  const populated = await winner.populate([
+    { path: 'userId', select: 'name email' },
+    { path: 'prizeId', select: 'prizeTag isActive' },
+  ]);
+
+  return {
+    message: `Winner selected ${selectionType === 'AUTO' ? 'automatically' : 'manually'}`,
+    data: populated,
+  };
+}
 
   // ─── Get Current Winner ────────────────────────────────
   async getCurrentWinner() {
