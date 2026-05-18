@@ -32,7 +32,7 @@ export class SubscriptionService {
   }
 
   // ─── Create Stripe Checkout Session ───────────────────
-  async createCheckout(userId: string, planId: string) {
+  async createCheckout(userId: string, planId: string, startDate: string) {
     const plan = await this.planModel.findById(planId);
     if (!plan) throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
 
@@ -40,6 +40,7 @@ export class SubscriptionService {
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
     const priceInCents = Math.round(plan.price * 100);
+    const selectedStartDate = this.parseStartDate(startDate);
 
     const session = await this.stripe.checkout.sessions.create({
       mode: 'payment',
@@ -62,6 +63,7 @@ export class SubscriptionService {
         userId: userId.toString(),
         planId: planId.toString(),
         billingCycle: plan.billingCycle,
+        startDate: selectedStartDate.toISOString(),
       },
       success_url: `${this.configService.get('app.frontendUrl')}/subscription-success`,
       cancel_url: `${this.configService.get('app.frontendUrl')}/subscription-cancel`,
@@ -91,9 +93,10 @@ export class SubscriptionService {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
 
-      const userId      = session.metadata.userId;
-      const planId      = session.metadata.planId;
+      const userId       = session.metadata.userId;
+      const planId       = session.metadata.planId;
       const billingCycle = session.metadata.billingCycle;
+      const selectedStart = session.metadata.startDate;
 
       const plan = await this.planModel.findById(planId);
       if (!plan) throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
@@ -101,8 +104,8 @@ export class SubscriptionService {
       const user = await this.userModel.findById(userId);
       if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
-      // ── Calculate subscription dates ──
-      const startDate = new Date();
+      // ── Use user selected start date or default to now ──
+      const startDate = this.parseStartDate(selectedStart);
       let endDate: Date | null = null;
 
       if (billingCycle?.toLowerCase() === 'monthly') {
@@ -145,6 +148,29 @@ export class SubscriptionService {
     }
 
     return { received: true };
+  }
+
+  private parseStartDate(startDate?: string): Date {
+    if (!startDate) {
+      throw new HttpException('startDate is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate);
+    const parsedDate = dateOnlyMatch
+      ? new Date(
+          Date.UTC(
+            Number(dateOnlyMatch[1]),
+            Number(dateOnlyMatch[2]) - 1,
+            Number(dateOnlyMatch[3]),
+          ),
+        )
+      : new Date(startDate);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      throw new HttpException('Invalid startDate', HttpStatus.BAD_REQUEST);
+    }
+
+    return parsedDate;
   }
 
   // ─── Admin: Get All Subscribed Users ──────────────────

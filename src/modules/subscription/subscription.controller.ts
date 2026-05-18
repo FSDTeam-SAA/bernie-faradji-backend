@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Query,
+  Body,
   UseGuards,
   Headers,
   Req,
@@ -19,7 +20,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RoleType } from '../../common/enums/role.enum';
-import { GetSubscriptionsQueryDto } from './dto/subscription.dto';
+import { GetSubscriptionsQueryDto, BuySubscriptionDto } from './dto/subscription.dto';
 
 
 @Controller('subscriptions')
@@ -33,8 +34,9 @@ export class SubscriptionController {
   createCheckout(
     @CurrentUser('_id') userId: string,
     @Param('planId') planId: string,
+    @Body() dto: BuySubscriptionDto,
   ) {
-    return this.subscriptionService.createCheckout(userId, planId);
+    return this.subscriptionService.createCheckout(userId, planId, dto.startDate);
   }
 
   // ─── Stripe Webhook (raw body — must be Public) ────────
