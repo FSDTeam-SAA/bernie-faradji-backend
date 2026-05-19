@@ -196,12 +196,27 @@ export class AdminService {
       { $group: { _id: '$categoryId', count: { $sum: 1 } } },
       {
         $lookup: {
-          from: 'categories', localField: '_id', foreignField: '_id', as: 'category',
+          from: 'categories',
+          let: { categoryId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$_id', '$$categoryId'] },
+                    { $eq: [{ $toString: '$_id' }, { $toString: '$$categoryId' }] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'category',
         },
       },
       { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
       {
         $project: {
+          category:     '$category',
           categoryName: '$category.name',
           count:        1,
           percentage: {
