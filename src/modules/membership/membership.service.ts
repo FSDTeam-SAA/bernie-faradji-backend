@@ -16,16 +16,41 @@ export class MembershipService {
     private readonly membershipModel: Model<MembershipDocument>,
   ) {}
 
-  // ─── Auto expire check (called on get) ────────────────
-  private async autoExpireCheck(membership: MembershipDocument) {
-    if (
-      membership.endDate &&
-      new Date() > new Date(membership.endDate) &&
-      membership.status !== 'EXPIRED'
-    ) {
-      membership.status = 'EXPIRED';
+  // ─── Auto lifecycle status check (called on get) ──────
+  private resolveStatus(
+    startDate: Date,
+    endDate: Date | null,
+    currentStatus?: string,
+  ): string {
+    const now = new Date();
+
+    if (endDate && now > new Date(endDate)) {
+      return 'EXPIRED';
+    }
+
+    if (currentStatus === 'CLEARED') {
+      return 'CLEARED';
+    }
+
+    if (now < new Date(startDate)) {
+      return 'PENDING';
+    }
+
+    return 'ACTIVE';
+  }
+
+  private async syncMembershipStatus(membership: MembershipDocument) {
+    const nextStatus = this.resolveStatus(
+      membership.startDate,
+      membership.endDate,
+      membership.status,
+    );
+
+    if (membership.status !== nextStatus) {
+      membership.status = nextStatus;
       await membership.save();
     }
+
     return membership;
   }
 
@@ -35,12 +60,6 @@ export class MembershipService {
     const limit = Number(query.limit || 10);
     const filter = createFilter(query.search, query.date, { searchField: 'name' });
 
-    // auto expire before returning
-    await this.membershipModel.updateMany(
-      { endDate: { $lt: new Date() }, status: { $nin: ['EXPIRED'] } },
-      { status: 'EXPIRED' },
-    );
-
     const total       = await this.membershipModel.countDocuments(filter);
     const memberships = await this.membershipModel
       .find(filter)
@@ -49,6 +68,10 @@ export class MembershipService {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
+
+    await Promise.all(
+      memberships.map((membership) => this.syncMembershipStatus(membership)),
+    );
 
     return {
       message: 'Memberships fetched successfully',
@@ -64,7 +87,7 @@ export class MembershipService {
       .populate('userId', 'name email')
       .populate('planId', 'planName price billingCycle');
     if (!membership) throw new HttpException('Membership not found', HttpStatus.NOT_FOUND);
-    await this.autoExpireCheck(membership);
+    await this.syncMembershipStatus(membership);
     return { message: 'Membership fetched successfully', data: membership };
   }
 
@@ -85,12 +108,6 @@ export class MembershipService {
       userOrUserId?._id ??
       userOrUserId?.id ??
       userOrUserId;
-
-    // auto expire first
-    await this.membershipModel.updateMany(
-      { userId, endDate: { $lt: new Date() }, status: { $nin: ['EXPIRED'] } },
-      { status: 'EXPIRED' },
-    );
 
     let membership = await this.membershipModel
       .findOne({ userId })
@@ -120,13 +137,18 @@ export class MembershipService {
         planId: userOrUserId.subscription.planId,
         startDate,
         endDate,
-        status: 'ACTIVE',
+        paymentStatus: 'PAID',
+        status: this.resolveStatus(startDate, endDate),
       });
 
       membership = await this.membershipModel
         .findOne({ userId })
         .populate('planId', 'planName price billingCycle packageIncludes')
         .sort({ createdAt: -1 });
+    }
+
+    if (membership) {
+      await this.syncMembershipStatus(membership);
     }
 
     return {
@@ -144,13 +166,15 @@ export class MembershipService {
   ) {
     // deactivate old memberships
     await this.membershipModel.updateMany({ userId }, { status: 'EXPIRED' });
+    const status = this.resolveStatus(startDate, endDate);
 
     const membership = await this.membershipModel.create({
       userId,
       planId,
       startDate,
       endDate,
-      status: 'ACTIVE',
+      paymentStatus: 'PAID',
+      status,
     });
 
     return membership;

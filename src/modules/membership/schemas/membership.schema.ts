@@ -15,7 +15,12 @@ export class Membership {
   @Prop({ default: null })
   endDate: Date | null;
 
-  // admin managed status
+  @Prop({
+    enum: ['PENDING', 'PAID', 'FAILED'],
+    default: 'PENDING',
+  })
+  paymentStatus: string;
+
   @Prop({
     enum: ['PENDING', 'ACTIVE', 'CLEARED', 'EXPIRED'],
     default: 'PENDING',
