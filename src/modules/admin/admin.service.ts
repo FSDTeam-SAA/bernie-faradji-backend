@@ -95,27 +95,52 @@ export class AdminService {
   }
 
   // ─── Get Single Transaction ────────────────────────────
-  async getOneTransaction(id: string, type: string) {
-    if (!['journey', 'token'].includes(type?.toLowerCase())) {
+  async getOneTransaction(id: string, type?: string) {
+    const normalizedType = type?.toLowerCase();
+    if (normalizedType && !['journey', 'token'].includes(normalizedType)) {
       throw new HttpException('Type must be "journey" or "token"', HttpStatus.BAD_REQUEST);
+    }
+
+    if (!Types.ObjectId.isValid(id)) {
+      throw new HttpException('Invalid transaction id', HttpStatus.BAD_REQUEST);
     }
 
     const objectId = new Types.ObjectId(id);
 
-    if (type.toLowerCase() === 'journey') {
-      const journey = await this.journeyModel
-        .findById(objectId)
-        .populate('userId',     'name email')
-        .populate('categoryId', 'name rateActual rateDiscounted');
-      if (!journey) throw new HttpException('Transaction not found', HttpStatus.NOT_FOUND);
-      return { message: 'Transaction fetched successfully', data: { ...journey.toObject(), serviceType: 'JOURNEY' } };
+    if (!normalizedType || normalizedType === 'journey') {
+      const journey = await this.findJourneyTransaction(objectId);
+      if (journey) {
+        return {
+          message: 'Transaction fetched successfully',
+          data: { ...journey.toObject(), serviceType: 'JOURNEY' },
+        };
+      }
     }
 
-    const token = await this.tokenModel
+    if (!normalizedType || normalizedType === 'token') {
+      const token = await this.findTokenTransaction(objectId);
+      if (token) {
+        return {
+          message: 'Transaction fetched successfully',
+          data: { ...token.toObject(), serviceType: 'TOKEN' },
+        };
+      }
+    }
+
+    throw new HttpException('Transaction not found', HttpStatus.NOT_FOUND);
+  }
+
+  private findJourneyTransaction(objectId: Types.ObjectId) {
+    return this.journeyModel
+      .findById(objectId)
+      .populate('userId',     'name email')
+      .populate('categoryId', 'name rateActual rateDiscounted');
+  }
+
+  private findTokenTransaction(objectId: Types.ObjectId) {
+    return this.tokenModel
       .findById(objectId)
       .populate('userId', 'name email');
-    if (!token) throw new HttpException('Transaction not found', HttpStatus.NOT_FOUND);
-    return { message: 'Transaction fetched successfully', data: { ...token.toObject(), serviceType: 'TOKEN' } };
   }
 
   // ─── Dashboard Stats (cards) ───────────────────────────
