@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema';
 import { CloudinaryService } from '../../infrastructure/cloudinary/cloudinary.service';
 import {
-  createFilter,
   createMeta,
   createPaginationInfo,
 } from '../../common/utils/pagination.util';
@@ -52,7 +51,28 @@ export class CategoryService {
   async getAll(query: GetCategoriesQueryDto) {
     const page  = Number(query.page  || 1);
     const limit = Number(query.limit || 10);
-    const filter = createFilter(query.search, query.date, { searchField: 'name' });
+    const filter: Record<string, any> = {};
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const numericSearch = Number(search);
+
+      filter.$or = [
+        { name: regex },
+        { shortDetails: regex },
+        ...(!Number.isNaN(numericSearch)
+          ? [{ rateActual: numericSearch }, { rateDiscounted: numericSearch }]
+          : []),
+      ];
+    }
+
+    if (query.date) {
+      const date = new Date(query.date);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      filter.createdAt = { $gte: date, $lt: nextDay };
+    }
 
     const total      = await this.categoryModel.countDocuments(filter);
     const categories = await this.categoryModel

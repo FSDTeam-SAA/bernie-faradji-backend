@@ -206,6 +206,52 @@ export class JourneyService {
     const limit = Number(query.limit || 10);
 
     const filter: any = { paymentStatus: 'PAID' };
+
+    if (query.status && query.status.trim()) {
+      const status = query.status.trim().toUpperCase();
+      if (status !== 'ALL') {
+        filter.journeyStatus = status;
+      }
+    }
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const flexibleVehicleRegex = new RegExp(
+        search
+          .replace(/\s+/g, '')
+          .split('')
+          .map((char) => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('\\s*'),
+        'i',
+      );
+
+      const matchedCategories = await this.categoryModel
+        .find({ name: regex })
+        .select('_id')
+        .limit(50);
+
+      const matchedUsers = await this.userModel
+        .find({ $or: [{ name: regex }, { email: regex }] })
+        .select('_id')
+        .limit(50);
+
+      const categoryIds = matchedCategories.map((c) => c._id);
+      const userIds = matchedUsers.map((user) => user._id);
+      const parsedDate = new Date(search);
+      const isSearchDate = !Number.isNaN(parsedDate.getTime());
+      const nextDay = new Date(parsedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      filter.$or = [
+        { vehicleNumber: regex },
+        { vehicleNumber: flexibleVehicleRegex },
+        ...(categoryIds.length ? [{ categoryId: { $in: categoryIds } }] : []),
+        ...(userIds.length ? [{ userId: { $in: userIds } }] : []),
+        ...(isSearchDate ? [{ preferredDate: { $gte: parsedDate, $lt: nextDay } }] : []),
+      ];
+    }
+
     if (query.date) {
       const date    = new Date(query.date);
       const nextDay = new Date(date);

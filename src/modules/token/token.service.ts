@@ -8,7 +8,6 @@ import { Winner, WinnerDocument } from './schemas/winner.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
 import { Prize, PrizeDocument } from '../prize/schemas/prize.schema';
 import {
-  createFilter,
   createMeta,
   createPaginationInfo,
 } from '../../common/utils/pagination.util';
@@ -177,8 +176,43 @@ constructor(
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
 
-    // search by vehicle number or join user name/email via populate
     const filter: any = { paymentStatus: 'PAID' };
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const flexibleVehicleRegex = new RegExp(
+        search
+          .replace(/\s+/g, '')
+          .split('')
+          .map((char) => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('\\s*'),
+        'i',
+      );
+      const numericSearch = Number(search);
+
+      const matchedUsers = await this.userModel
+        .find({ $or: [{ name: regex }, { email: regex }] })
+        .select('_id')
+        .limit(50);
+
+      const userIds = matchedUsers.map((user) => user._id);
+      const parsedDate = new Date(search);
+      const isSearchDate = !Number.isNaN(parsedDate.getTime());
+      const nextDay = new Date(parsedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      filter.$or = [
+        { vehicleNumber: regex },
+        { vehicleNumber: flexibleVehicleRegex },
+        ...(userIds.length ? [{ userId: { $in: userIds } }] : []),
+        ...(!Number.isNaN(numericSearch)
+          ? [{ quantity: numericSearch }, { totalPrice: numericSearch }]
+          : []),
+        ...(isSearchDate ? [{ createdAt: { $gte: parsedDate, $lt: nextDay } }] : []),
+      ];
+    }
+
     if (query.date) {
       const date = new Date(query.date);
       const nextDay = new Date(date);
@@ -252,6 +286,7 @@ private async saveWinner(token: any, selectionType: 'AUTO' | 'MANUAL') {
 
   const populated = await winner.populate([
     { path: 'userId', select: 'name email' },
+    { path: 'tokenId' },
     { path: 'prizeId', select: 'prizeTag isActive' },
   ]);
 
@@ -266,7 +301,8 @@ private async saveWinner(token: any, selectionType: 'AUTO' | 'MANUAL') {
     const winner = await this.winnerModel
       .findOne({ isActive: true })
       .populate('userId', 'name email')
-      .populate('tokenId');
+      .populate('tokenId')
+      .populate('prizeId', 'prizeTag isActive');
 
     return {
       message: winner ? 'Current winner fetched' : 'No winner selected yet',
