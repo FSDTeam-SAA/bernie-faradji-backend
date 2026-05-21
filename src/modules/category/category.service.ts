@@ -97,7 +97,7 @@ export class CategoryService {
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
-    return { message: 'Category fetched successfully', data: category };
+    return { message: 'Category fetched successfullys', data: category };
   }
 
   // ─── Update ────────────────────────────────────────────
