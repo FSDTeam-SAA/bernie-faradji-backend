@@ -41,7 +41,7 @@ export class InsuranceService {
       .limit(limit);
 
     return {
-      message: 'Insurances fetched successfully',
+      message: 'Insurances fetched successfullys',
       meta: createMeta(page, limit, total),
       data: {
         insurances,
