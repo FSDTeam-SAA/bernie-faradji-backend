@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import * as jwt from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import { User, UserDocument } from './schemas/user.schema';
+import { Team, TeamDocument } from '../team/schemas/team.schema';
 import {
   RegisterDto,
   LoginDto,
@@ -27,6 +28,7 @@ export class AuthService {
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(Team.name) private readonly teamModel: Model<TeamDocument>,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
   ) {
@@ -67,12 +69,18 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.userModel.findOne({ email: dto.email }).select('+password');
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const user = await this.userModel.findOne({ email: normalizedEmail }).select('+password isSuspended isSuspend');
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
-    if (user.isSuspended) {
+    const teamAdmin = await this.teamModel
+      .findOne({ email: normalizedEmail })
+      .select('status')
+      .lean();
+
+    if ((user as any).isSuspended === true || (user as any).isSuspend === true || teamAdmin?.status === 'Suspended') {
       throw new HttpException(
         'Your account has been suspended. Contact the super admin.',
         HttpStatus.FORBIDDEN,
@@ -115,7 +123,12 @@ export class AuthService {
       throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
     }
 
-    if (user.isSuspended) {
+    const teamAdmin = await this.teamModel
+      .findOne({ email: user.email })
+      .select('status')
+      .lean();
+
+    if ((user as any).isSuspended === true || (user as any).isSuspend === true || teamAdmin?.status === 'Suspended') {
       throw new HttpException(
         'Your account has been suspended. Contact the super admin.',
         HttpStatus.FORBIDDEN,
