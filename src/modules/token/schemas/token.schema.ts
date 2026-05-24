@@ -15,6 +15,15 @@ export class Token {
   @Prop({ required: true })
   totalPrice: number;
 
+  @Prop({ type: [String], default: [] })
+  ticketCodes: string[];
+
+  @Prop({ required: true })
+  month: number; // 1-12
+
+  @Prop({ required: true })
+  year: number; // e.g. 2026
+
   @Prop({ default: 'PENDING' }) // PENDING | PAID | FAILED
   paymentStatus: string;
 

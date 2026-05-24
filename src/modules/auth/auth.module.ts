@@ -27,5 +27,4 @@ import { EmailModule } from '../../infrastructure/email/email.module';
   providers: [AuthService, JwtAuthGuard],
   exports: [AuthService, MongooseModule, JwtModule, JwtAuthGuard],
 })
-
 export class AuthModule {}

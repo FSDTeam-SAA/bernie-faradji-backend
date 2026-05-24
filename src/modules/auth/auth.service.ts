@@ -72,6 +72,13 @@ export class AuthService {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
+    if (user.isSuspended) {
+      throw new HttpException(
+        'Your account has been suspended. Contact the super admin.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     const isMatch = await user.comparePassword(dto.password);
     if (!isMatch) {
       throw new HttpException('Invalid password', HttpStatus.BAD_REQUEST);
@@ -106,6 +113,13 @@ export class AuthService {
     const user = await this.userModel.findOne({ refreshToken: dto.refreshToken });
     if (!user) {
       throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (user.isSuspended) {
+      throw new HttpException(
+        'Your account has been suspended. Contact the super admin.',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     try {

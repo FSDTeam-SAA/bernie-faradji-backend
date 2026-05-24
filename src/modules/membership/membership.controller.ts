@@ -30,7 +30,7 @@ export class MembershipController {
 
   // ─── Admin: Get All ───────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get('all')
   getAll(@Query() query: GetMembershipsQueryDto) {
     return this.membershipService.getAll(query);
@@ -38,7 +38,7 @@ export class MembershipController {
 
   // ─── Admin: Get Single ────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.membershipService.getOne(id);
@@ -46,7 +46,7 @@ export class MembershipController {
 
   // ─── Admin: Update Status ─────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id/status')
   @HttpCode(HttpStatus.OK)
   updateStatus(

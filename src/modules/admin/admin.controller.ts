@@ -14,7 +14,7 @@ import { GetTransactionsQueryDto, GetWeeklyQueryDto } from './dto/admin.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RoleType.ADMIN)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 

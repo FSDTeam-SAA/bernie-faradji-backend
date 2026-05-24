@@ -69,7 +69,7 @@ export class TokenController {
 
   // ─── Admin: Get All Token Purchases ───────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get('all')
   getAllTokens(@Query() query: GetTokensQueryDto) {
     return this.tokenService.getAllTokens(query);
@@ -77,7 +77,7 @@ export class TokenController {
 
   // ─── Admin: Auto Select Winner ────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post('winner/auto')
   @HttpCode(HttpStatus.OK)
   autoSelectWinner() {
@@ -86,7 +86,7 @@ export class TokenController {
 
   // ─── Admin: Manual Select Winner ─────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post('winner/manual')
   @HttpCode(HttpStatus.OK)
   manualSelectWinner(@Body() dto: SelectWinnerManualDto) {
@@ -95,7 +95,7 @@ export class TokenController {
 
   // ─── Admin: Winner History ────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get('winner/history')
   getWinnerHistory(@Query() query: GetTokensQueryDto) {
     return this.tokenService.getWinnerHistory(query);

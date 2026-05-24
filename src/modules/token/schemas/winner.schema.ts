@@ -15,6 +15,9 @@ export class Winner {
   @Prop({ required: true })
   vehicleNumber: string;
 
+  @Prop({ default: null })
+  winningCode: string; // the specific ticket code that won e.g. 'BBD-A1B2C3'
+
   @Prop({ enum: ['MANUAL', 'AUTO'], required: true })
   selectionType: string;
 

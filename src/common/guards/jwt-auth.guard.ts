@@ -1,5 +1,5 @@
 import {
-  Injectable, CanActivate, ExecutionContext, UnauthorizedException,
+  Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -39,10 +39,16 @@ export class JwtAuthGuard implements CanActivate {
       const user = await this.userModel.findById(decoded._id).select(USER_SELECT_FIELDS);
       if (!user) throw new UnauthorizedException('User not found');
 
+      // ── Check if worker admin is suspended ──
+      if ((user as any).isSuspended === true) {
+        throw new ForbiddenException('Your account has been suspended. Contact the super admin.');
+      }
+
       request.user = user;
       return true;
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
+      if (err instanceof ForbiddenException) throw err;
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

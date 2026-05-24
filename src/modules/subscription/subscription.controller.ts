@@ -52,7 +52,7 @@ export class SubscriptionController {
 
   // ─── Admin: Get All Subscribed Users ──────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get('all')
   getAllSubscriptions(@Query() query: GetSubscriptionsQueryDto) {
     return this.subscriptionService.getAllSubscriptions(query);

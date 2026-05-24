@@ -44,7 +44,7 @@ export class PlanController {
 
   // ─── Admin: Create ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreatePlanDto) {
@@ -53,7 +53,7 @@ export class PlanController {
 
   // ─── Admin: Update ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.planService.update(id, dto);
@@ -61,7 +61,7 @@ export class PlanController {
 
   // ─── Admin: Delete ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {

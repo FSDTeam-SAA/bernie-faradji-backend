@@ -19,7 +19,7 @@ import { JourneyModule } from './modules/journey/journey.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
 import { MembershipModule } from './modules/membership/membership.module';
-// add MembershipModule — must be before SubscriptionModule
+import { TeamModule } from './modules/team/team.module';
 
 @Module({
   imports: [
@@ -53,6 +53,7 @@ import { MembershipModule } from './modules/membership/membership.module';
     AdminModule,
     MembershipModule,
     UserDashboardModule,
+    TeamModule,
   ],
   controllers: [AppController],
   providers: [
