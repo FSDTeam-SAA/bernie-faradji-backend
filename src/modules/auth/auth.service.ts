@@ -70,7 +70,11 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const normalizedEmail = dto.email.toLowerCase().trim();
-    const user = await this.userModel.findOne({ email: normalizedEmail }).select('+password isSuspended isSuspend');
+    const user = await this.userModel
+      .findOne({ email: normalizedEmail })
+      .select(
+        '+password name email username dob vehicleNumber gender role stripeAccountId bio profileImage multiProfileImage pdfFile isVerified isSuspended isSuspend hasActiveSubscription subscriptionExpireDate subscription language',
+      );
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
@@ -101,11 +105,25 @@ export class AuthService {
       message: 'Login successful',
       data: {
         user: {
-          _id:          user._id,
-          name:         user.name,
-          email:        user.email,
-          role:         user.role,
-          profileImage: user.profileImage,
+          _id:                    user._id,
+          name:                   user.name,
+          email:                  user.email,
+          username:               user.username,
+          dob:                    user.dob,
+          vehicleNumber:          user.vehicleNumber,
+          gender:                 user.gender,
+          role:                   user.role,
+          stripeAccountId:        user.stripeAccountId,
+          bio:                    user.bio,
+          profileImage:           user.profileImage,
+          multiProfileImage:      user.multiProfileImage,
+          pdfFile:                user.pdfFile,
+          isVerified:             user.isVerified,
+          isSuspended:            user.isSuspended,
+          hasActiveSubscription:  user.hasActiveSubscription,
+          subscriptionExpireDate: user.subscriptionExpireDate,
+          subscription:           user.subscription,
+          language:               user.language,
           refreshToken,
         },
         accessToken: this.issueAccessToken(payload),
