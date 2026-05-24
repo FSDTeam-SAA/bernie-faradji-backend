@@ -37,9 +37,12 @@ export class TeamService {
     const isPasswordValid = await bcrypt.compare(dto.password, admin.password);
     if (!isPasswordValid) throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    const user = await this.userModel.findOne({ email: normalizedEmail }).select('isSuspended');
+    const user = await this.userModel
+      .findOne({ email: normalizedEmail })
+      .select('isSuspended isSuspend')
+      .lean();
 
-    if (admin.status === 'Suspended' || user?.isSuspended) {
+    if (admin.status === 'Suspended' || user?.isSuspended === true || (user as any)?.isSuspend === true) {
       throw new HttpException('Your account has been suspended. Contact the super admin.', HttpStatus.FORBIDDEN);
     }
 
