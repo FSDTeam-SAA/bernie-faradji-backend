@@ -65,8 +65,8 @@ export class SubscriptionService {
         billingCycle: plan.billingCycle,
         startDate: selectedStartDate.toISOString(),
       },
-      success_url: `${this.configService.get('app.frontendUrl')}/subscription-success`,
-      cancel_url: `${this.configService.get('app.frontendUrl')}/subscription-cancel`,
+      success_url: `${this.configService.get('app.frontendUrl')}/payment-success`,
+      cancel_url: `${this.configService.get('app.frontendUrl')}/payment-cancel`,
     });
 
     return { message: 'Checkout session created', data: { url: session.url } };

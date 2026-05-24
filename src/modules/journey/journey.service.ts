@@ -126,8 +126,8 @@ export class JourneyService {
         userId:    userId.toString(),
         journeyId: journey._id.toString(),
       },
-      success_url: `${this.configService.get('app.frontendUrl')}/journey-success`,
-      cancel_url:  `${this.configService.get('app.frontendUrl')}/journey-cancel`,
+      success_url: `${this.configService.get('app.frontendUrl')}/payment-success`,
+      cancel_url:  `${this.configService.get('app.frontendUrl')}/payment-cancel`,
     });
 
     await this.journeyModel.findByIdAndUpdate(journey._id, {
