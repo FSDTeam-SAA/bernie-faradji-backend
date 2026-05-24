@@ -44,8 +44,8 @@ export class InsuranceController {
   }
 
   // ─── Admin: Create ────────────────────────────────────
-  @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+ @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateInsuranceDto) {
@@ -54,7 +54,7 @@ export class InsuranceController {
 
   // ─── Admin: Update ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdateInsuranceDto) {
     return this.insuranceService.update(id, dto);
@@ -62,7 +62,7 @@ export class InsuranceController {
 
   // ─── Admin: Delete ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {

@@ -64,7 +64,7 @@ export class CategoryController {
 
   // ─── Admin: Create ────────────────────────────────────
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
@@ -80,8 +80,8 @@ export class CategoryController {
   }
 
   // ─── Admin: Update ────────────────────────────────────
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id')
   @UseInterceptors(
     FileFieldsInterceptor([{ name: 'icon', maxCount: 1 }], {
@@ -98,7 +98,7 @@ export class CategoryController {
 
   // ─── Admin: Delete ────────────────────────────────────
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {

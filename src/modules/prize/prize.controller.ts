@@ -40,7 +40,7 @@ export class PrizeController {
 
   // ─── Admin: Create ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreatePrizeDto) {
@@ -49,7 +49,7 @@ export class PrizeController {
 
   // ─── Admin: Update ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdatePrizeDto) {
     return this.prizeService.update(id, dto);
@@ -57,7 +57,7 @@ export class PrizeController {
 
   // ─── Admin: Delete ────────────────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {

@@ -48,14 +48,14 @@ export class UserController {
   // ─── Admin Routes ──────────
   @Get('all-users')
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   getAllUsers(@Query() query: GetUsersQueryDto) {
     return this.userService.getAllUsers(query);
   }
 
   @Get('all-admins')
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   getAllAdmins(@Query() query: GetUsersQueryDto) {
     return this.userService.getAllAdmins(query);
   }
@@ -200,14 +200,14 @@ export class UserController {
   // ─── Admin CRUD (parameterized — MUST be last) ────────
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   adminGetUser(@Param('id') id: string) {
     return this.userService.adminGetUserById(id);
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   adminUpdateUser(
     @Param('id') id: string,
     @Body() dto: AdminUpdateUserDto,
@@ -217,7 +217,7 @@ export class UserController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   adminDeleteUser(@Param('id') id: string) {
     return this.userService.adminDeleteUser(id);

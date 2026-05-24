@@ -66,16 +66,16 @@ export class JourneyController {
   }
 
   // ─── Admin: Update Late Fee ───────────────────────────
-  @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put('settings/late-fee')
   updateLateFee(@Body() dto: UpdateLateFeeDto) {
     return this.journeyService.updateLateFee(dto);
   }
 
   // ─── Admin: Get All Journeys ──────────────────────────
-  @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get('all')
   getAllJourneys(@Query() query: GetJourneysQueryDto) {
     return this.journeyService.getAllJourneys(query);
@@ -83,7 +83,7 @@ export class JourneyController {
 
   // ─── Admin: Get Single Journey ────────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.journeyService.getOne(id);
@@ -91,7 +91,7 @@ export class JourneyController {
 
   // ─── Admin: Update Journey Status ─────────────────────
   @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @Put(':id/status')
   updateStatus(
     @Param('id') id: string,

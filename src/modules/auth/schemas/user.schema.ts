@@ -45,6 +45,7 @@ export class User {
 
   @Prop({ trim: true })    username?: string;
   @Prop({ default: null }) dob?: Date;
+  @Prop({ default: null }) vehicleNumber?: string;
 
   @Prop({ enum: ['male', 'female', 'other'], default: 'male' })
   gender: string;
@@ -70,6 +71,7 @@ export class User {
 
   @Prop({ default: false }) hasActiveSubscription: boolean;
   @Prop({ default: null })  subscriptionExpireDate?: Date;
+  @Prop({ default: false }) isSuspended: boolean; // used for team admin suspension
 
   // ─── Subscription details ──────────────────────────
   @Prop({ type: SubscriptionSchema, default: null })
