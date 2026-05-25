@@ -43,6 +43,8 @@ export class User {
 
   @Prop({ required: true, select: false }) password: string;
 
+  @Prop({ trim: true, default: '' }) phone?: string;
+
   @Prop({ trim: true })    username?: string;
   @Prop({ default: null }) dob?: Date;
   @Prop({ default: null }) vehicleNumber?: string;

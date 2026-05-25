@@ -14,7 +14,6 @@ import {
 } from '../../common/utils/pagination.util';
 import { GetSubscriptionsQueryDto } from './dto/subscription.dto';
 
-
 @Injectable()
 export class SubscriptionService {
   private stripe: Stripe.Stripe;
@@ -93,20 +92,32 @@ export class SubscriptionService {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
 
-      const userId       = session.metadata.userId;
-      const planId       = session.metadata.planId;
+      const userId = session.metadata.userId;
+      const planId = session.metadata.planId;
       const billingCycle = session.metadata.billingCycle;
       const selectedStart = session.metadata.startDate;
 
       const plan = await this.planModel.findById(planId);
-      if (!plan) throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
+      if (!plan)
+        throw new HttpException('Plan not found', HttpStatus.NOT_FOUND);
 
       const user = await this.userModel.findById(userId);
-      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      if (!user)
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       // ── Use user selected start date or default to now ──
       const startDate = this.parseStartDate(selectedStart);
       let endDate: Date | null = null;
+
+      if (billingCycle?.toLowerCase() === 'weekly') {
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 7);
+      }
+
+      if (billingCycle?.toLowerCase() === 'fortnight') {
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 15);
+      }
 
       if (billingCycle?.toLowerCase() === 'monthly') {
         endDate = new Date(startDate);
@@ -125,13 +136,18 @@ export class SubscriptionService {
         endDate,
       };
 
-      user.hasActiveSubscription  = true;
+      user.hasActiveSubscription = true;
       user.subscriptionExpireDate = endDate;
 
       await user.save();
 
       // ── Create membership record ──
-      await this.membershipService.createFromWebhook(userId, planId, startDate, endDate);
+      await this.membershipService.createFromWebhook(
+        userId,
+        planId,
+        startDate,
+        endDate,
+      );
 
       // ── Send confirmation email ──
       try {
@@ -139,7 +155,13 @@ export class SubscriptionService {
           await this.emailService.sendEmail({
             to: user.email,
             subject: 'Your subscription is confirmed!',
-            html: this.buildSubscriptionEmail(user, plan, billingCycle, startDate, endDate),
+            html: this.buildSubscriptionEmail(
+              user,
+              plan,
+              billingCycle,
+              startDate,
+              endDate,
+            ),
           });
         }
       } catch (emailError) {
@@ -175,7 +197,7 @@ export class SubscriptionService {
 
   // ─── Admin: Get All Subscribed Users ──────────────────
   async getAllSubscriptions(query: GetSubscriptionsQueryDto) {
-    const page  = Number(query.page  || 1);
+    const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
     const filter = {
       ...createFilter(query.search, query.date, { searchField: 'name' }),
