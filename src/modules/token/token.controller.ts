@@ -94,8 +94,7 @@ export class TokenController {
   }
 
   // ─── Admin: Winner History ────────────────────────────
-  @UseGuards(RolesGuard)
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  
   @Get('winner/history')
   getWinnerHistory(@Query() query: GetTokensQueryDto) {
     return this.tokenService.getWinnerHistory(query);
