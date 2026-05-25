@@ -14,85 +14,86 @@ export class AdminService {
   ) {}
 
   // ─── Get All Transactions (journey + token merged) ────
-  async getAllTransactions(query: GetTransactionsQueryDto) {
-    const page  = Number(query.page  || 1);
-    const limit = Number(query.limit || 10);
+async getAllTransactions(query: GetTransactionsQueryDto) {
+  const page  = Number(query.page  || 1);
+  const limit = Number(query.limit || 10);
 
-    const dateFilter: any = {};
-    if (query.date) {
-      const date    = new Date(query.date);
-      const nextDay = new Date(date);
-      nextDay.setDate(nextDay.getDate() + 1);
-      dateFilter.createdAt = { $gte: date, $lt: nextDay };
-    }
-
-    // ── Journey transactions ──
-    const journeyTxns = await this.journeyModel.aggregate([
-      { $match: { paymentStatus: 'PAID', ...dateFilter } },
-      {
-        $lookup: {
-          from: 'users', localField: 'userId', foreignField: '_id', as: 'user',
-        },
-      },
-      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: 'categories', localField: 'categoryId', foreignField: '_id', as: 'category',
-        },
-      },
-      { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          buyerName:     '$user.name',
-          email:         '$user.email',
-          vehicleNumber: '$vehicleNumber',
-          totalAmount:   '$totalPrice',
-          purchaseDate:  '$createdAt',
-          serviceType:   { $literal: 'JOURNEY' },
-          serviceName:   '$category.name',
-          journeyStatus: '$journeyStatus',
-          paymentStatus: '$paymentStatus',
-        },
-      },
-    ]);
-
-    // ── Token transactions ──
-    const tokenTxns = await this.tokenModel.aggregate([
-      { $match: { paymentStatus: 'PAID', ...dateFilter } },
-      {
-        $lookup: {
-          from: 'users', localField: 'userId', foreignField: '_id', as: 'user',
-        },
-      },
-      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          buyerName:     '$user.name',
-          email:         '$user.email',
-          vehicleNumber: '$vehicleNumber',
-          totalAmount:   '$totalPrice',
-          purchaseDate:  '$createdAt',
-          serviceType:   { $literal: 'TOKEN' },
-          serviceName:   { $concat: ['Token x', { $toString: '$quantity' }] },
-          paymentStatus: '$paymentStatus',
-        },
-      },
-    ]);
-
-    // ── Merge + sort by date ──
-    const all = [...journeyTxns, ...tokenTxns].sort(
-      (a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime(),
-    );
-
-    const total     = all.length;
-    const paginated = all.slice((page - 1) * limit, page * limit);
-
-    return {
-      message: 'Transactions fetched successfully',
-      meta: createMeta(page, limit, total),
-      data: { transactions: paginated, paginationInfo: createPaginationInfo(page, limit, total) },
-    };
+  const dateFilter: any = {};
+  if (query.date) {
+    const date = new Date(query.date);
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    dateFilter.createdAt = { $gte: date, $lt: nextDay };
   }
+
+  const serviceFilter = query.serviceType ? { serviceType: query.serviceType.toUpperCase() } : {};
+  const searchRegex   = query.search ? new RegExp(query.search, 'i') : null;
+
+  // Journey transactions
+  let journeyTxns = await this.journeyModel.aggregate([
+    { $match: { paymentStatus: 'PAID', ...dateFilter } },
+    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    { $lookup: { from: 'categories', localField: 'categoryId', foreignField: '_id', as: 'category' } },
+    { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        buyerName:     '$user.name',
+        email:         '$user.email',
+        vehicleNumber: '$vehicleNumber',
+        totalAmount:   '$totalPrice',
+        purchaseDate:  '$createdAt',
+        serviceType:   { $literal: 'JOURNEY' },
+        serviceName:   '$category.name',
+        journeyStatus: '$journeyStatus',
+        paymentStatus: '$paymentStatus',
+      },
+    },
+  ]);
+
+  // Token transactions
+  let tokenTxns = await this.tokenModel.aggregate([
+    { $match: { paymentStatus: 'PAID', ...dateFilter } },
+    { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'user' } },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        buyerName:     '$user.name',
+        email:         '$user.email',
+        vehicleNumber: '$vehicleNumber',
+        totalAmount:   '$totalPrice',
+        purchaseDate:  '$createdAt',
+        serviceType:   { $literal: 'TOKEN' },
+        serviceName:   { $concat: ['Token x', { $toString: '$quantity' }] },
+        paymentStatus: '$paymentStatus',
+      },
+    },
+  ]);
+
+  // Merge + apply filters
+  let all = [...journeyTxns, ...tokenTxns];
+
+  if (serviceFilter.serviceType) {
+    all = all.filter(tx => tx.serviceType === serviceFilter.serviceType);
+  }
+
+  if (searchRegex) {
+    all = all.filter(
+      tx => searchRegex.test(tx.buyerName) || searchRegex.test(tx.email) || searchRegex.test(tx.vehicleNumber)
+    );
+  }
+
+  // Sort & paginate
+  all.sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
+  const total     = all.length;
+  const paginated = all.slice((page - 1) * limit, page * limit);
+
+  return {
+    message: 'Transactions fetched successfully',
+    meta: createMeta(page, limit, total),
+    data: { transactions: paginated, paginationInfo: createPaginationInfo(page, limit, total) },
+  };
+}
 
   // ─── Get Single Transaction ────────────────────────────
   async getOneTransaction(id: string, type?: string) {

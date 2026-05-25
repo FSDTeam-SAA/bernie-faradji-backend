@@ -12,6 +12,17 @@ export class GetTransactionsQueryDto {
   @IsOptional()
   @IsString()
   date?: string;
+
+
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // e.g. "JOURNEY" or "TOKEN"
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+
 }
 
 export class GetWeeklyQueryDto {

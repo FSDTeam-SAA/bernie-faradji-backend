@@ -27,6 +27,10 @@ export class CreateInsuranceDto {
   @IsNumber()
   @Min(0)
   savingUpTo?: number;
+
+  @IsOptional()
+  @IsString()
+  url?: string;
 }
 
 export class UpdateInsuranceDto {
@@ -50,6 +54,10 @@ export class UpdateInsuranceDto {
   @IsNumber()
   @Min(0)
   savingUpTo?: number;
+
+  @IsOptional()
+  @IsString()
+  url?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
