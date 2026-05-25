@@ -15,6 +15,9 @@ export class Insurance {
   @Prop({ default: 0 })
   savingUpTo: number;
 
+  @Prop({ default: '' })
+  url: string;
+
   @Prop({ default: true })
   isActive: boolean;
 }
