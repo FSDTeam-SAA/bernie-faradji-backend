@@ -106,28 +106,29 @@ export class SubscriptionService {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       // ── Use user selected start date or default to now ──
-      const startDate = this.parseStartDate(selectedStart);
-      let endDate: Date | null = null;
+    const startDate = this.parseStartDate(selectedStart);
+let endDate: Date | null = null;
+const cycle = billingCycle?.toLowerCase().trim();
 
-      if (billingCycle?.toLowerCase() === 'weekly') {
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 7);
-      }
+if (cycle === 'weekly') {
+  endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 7);
+}
 
-      if (billingCycle?.toLowerCase() === 'fortnight') {
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 15);
-      }
+if (cycle === 'fortnight') {
+  endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 15);
+}
 
-      if (billingCycle?.toLowerCase() === 'monthly') {
-        endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
-      }
+if (cycle === 'monthly') {
+  endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 1);
+}
 
-      if (billingCycle?.toLowerCase() === 'yearly') {
-        endDate = new Date(startDate);
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      }
+if (cycle === 'yearly') {
+  endDate = new Date(startDate);
+  endDate.setFullYear(endDate.getFullYear() + 1);
+}
 
       // ── Update user subscription ──
       (user as any).subscription = {
