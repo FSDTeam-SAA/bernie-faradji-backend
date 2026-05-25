@@ -5,24 +5,34 @@ import { Model } from 'mongoose';
 import Stripe from 'stripe';
 import { Journey, JourneyDocument } from './schemas/journey.schema';
 import { Settings, SettingsDocument } from './schemas/settings.schema';
-import { Category, CategoryDocument } from '../category/schemas/category.schema';
+import {
+  Category,
+  CategoryDocument,
+} from '../category/schemas/category.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
 import { EmailService } from '../../infrastructure/email/email.service';
 import {
   createMeta,
   createPaginationInfo,
 } from '../../common/utils/pagination.util';
-import { BuyJourneyPassDto, UpdateLateFeeDto, GetJourneysQueryDto } from './dto/journey.dto';
+import {
+  BuyJourneyPassDto,
+  UpdateLateFeeDto,
+  GetJourneysQueryDto,
+} from './dto/journey.dto';
 
 @Injectable()
 export class JourneyService {
   private stripe: Stripe.Stripe;
 
   constructor(
-    @InjectModel(Journey.name)   private readonly journeyModel:  Model<JourneyDocument>,
-    @InjectModel(Settings.name)  private readonly settingsModel: Model<SettingsDocument>,
-    @InjectModel(Category.name)  private readonly categoryModel: Model<CategoryDocument>,
-    @InjectModel(User.name)      private readonly userModel:     Model<UserDocument>,
+    @InjectModel(Journey.name)
+    private readonly journeyModel: Model<JourneyDocument>,
+    @InjectModel(Settings.name)
+    private readonly settingsModel: Model<SettingsDocument>,
+    @InjectModel(Category.name)
+    private readonly categoryModel: Model<CategoryDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
   ) {
@@ -31,16 +41,13 @@ export class JourneyService {
 
   // ─── Check Late Fee Logic ──────────────────────────────
   private isLateFeeApplicable(preferredDate: Date): boolean {
-    const today     = new Date();
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const cutoff    = new Date(today);
-    cutoff.setDate(cutoff.getDate() + 1);
 
     const preferred = new Date(preferredDate);
     preferred.setHours(0, 0, 0, 0);
 
-    return preferred <= cutoff;
+    return preferred < today; // only past dates get late fee
   }
 
   // ─── Get Current Settings (late fee) ──────────────────
@@ -70,35 +77,39 @@ export class JourneyService {
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
     const category = await this.categoryModel.findById(dto.categoryId);
-    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    if (!category)
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
-    const settings      = await this.settingsModel.findOne();
+    const settings = await this.settingsModel.findOne();
     const lateFeeAmount = settings?.lateFee || 0;
 
-    const applyLateFee  = this.isLateFeeApplicable(new Date(dto.preferredDate));
-    const lateFee       = applyLateFee ? lateFeeAmount : 0;
-    const categoryPrice = category.rateDiscounted > 0 ? category.rateDiscounted : category.rateActual;
-    const totalPrice    = categoryPrice + lateFee;
-    const priceInCents  = Math.round(totalPrice * 100);
+    const applyLateFee = this.isLateFeeApplicable(new Date(dto.preferredDate));
+    const lateFee = applyLateFee ? lateFeeAmount : 0;
+    const categoryPrice =
+      category.rateDiscounted > 0
+        ? category.rateDiscounted
+        : category.rateActual;
+    const totalPrice = categoryPrice + lateFee;
+    const priceInCents = Math.round(totalPrice * 100);
 
     const journey = await this.journeyModel.create({
       userId,
-      categoryId:       dto.categoryId,
-      vehicleNumber:    dto.vehicleNumber,
-      preferredDate:    new Date(dto.preferredDate),
+      categoryId: dto.categoryId,
+      vehicleNumber: dto.vehicleNumber,
+      preferredDate: new Date(dto.preferredDate),
       categoryPrice,
       lateFee,
       totalPrice,
       isLateFeeApplied: applyLateFee,
-      paymentStatus:    'PENDING',
+      paymentStatus: 'PENDING',
     });
 
     const lineItems: any[] = [
       {
         price_data: {
-          currency:     'gbp',
+          currency: 'gbp',
           product_data: { name: category.name, description: dto.vehicleNumber },
-          unit_amount:  Math.round(categoryPrice * 100),
+          unit_amount: Math.round(categoryPrice * 100),
         },
         quantity: 1,
       },
@@ -107,25 +118,25 @@ export class JourneyService {
     if (applyLateFee && lateFee > 0) {
       lineItems.push({
         price_data: {
-          currency:     'gbp',
+          currency: 'gbp',
           product_data: { name: 'Late Booking Fee' },
-          unit_amount:  Math.round(lateFee * 100),
+          unit_amount: Math.round(lateFee * 100),
         },
         quantity: 1,
       });
     }
 
     const session = await this.stripe.checkout.sessions.create({
-      mode:                 'payment',
+      mode: 'payment',
       payment_method_types: ['card'],
-      customer_email:       user.email,
-      line_items:           lineItems,
+      customer_email: user.email,
+      line_items: lineItems,
       metadata: {
-        userId:    userId.toString(),
+        userId: userId.toString(),
         journeyId: journey._id.toString(),
       },
       success_url: `${this.configService.get('app.frontendUrl')}/payment-success`,
-      cancel_url:  `${this.configService.get('app.frontendUrl')}/payment-cancel`,
+      cancel_url: `${this.configService.get('app.frontendUrl')}/payment-cancel`,
     });
 
     await this.journeyModel.findByIdAndUpdate(journey._id, {
@@ -147,7 +158,10 @@ export class JourneyService {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new HttpException(`Webhook Error: ${message}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `Webhook Error: ${message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (event.type === 'checkout.session.completed') {
@@ -195,9 +209,10 @@ export class JourneyService {
   async getOne(id: string) {
     const journey = await this.journeyModel
       .findById(id)
-      .populate('userId',     'name email')
+      .populate('userId', 'name email')
       .populate('categoryId', 'name icon rateActual rateDiscounted');
-    if (!journey) throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
+    if (!journey)
+      throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
     return { message: 'Journey fetched successfully', data: journey };
   }
 
@@ -205,21 +220,23 @@ export class JourneyService {
   async updateStatus(id: string, status: string) {
     const allowed = ['PENDING', 'CLEARED'];
     if (!allowed.includes(status)) {
-      throw new HttpException(`Status must be one of: ${allowed.join(', ')}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `Status must be one of: ${allowed.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    const journey = await this.journeyModel.findByIdAndUpdate(
-      id,
-      { journeyStatus: status },
-      { new: true },
-    ).populate('userId', 'name email')
-     .populate('categoryId', 'name');
-    if (!journey) throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
+    const journey = await this.journeyModel
+      .findByIdAndUpdate(id, { journeyStatus: status }, { new: true })
+      .populate('userId', 'name email')
+      .populate('categoryId', 'name');
+    if (!journey)
+      throw new HttpException('Journey not found', HttpStatus.NOT_FOUND);
     return { message: 'Journey status updated successfully', data: journey };
   }
 
   // ─── Admin: Get All Journeys ───────────────────────────
   async getAllJourneys(query: GetJourneysQueryDto) {
-    const page  = Number(query.page  || 1);
+    const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
 
     const filter: any = { paymentStatus: 'PAID' };
@@ -233,7 +250,10 @@ export class JourneyService {
 
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const regex = new RegExp(
+        search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        'i',
+      );
       const flexibleVehicleRegex = new RegExp(
         search
           .replace(/\s+/g, '')
@@ -265,21 +285,23 @@ export class JourneyService {
         { vehicleNumber: flexibleVehicleRegex },
         ...(categoryIds.length ? [{ categoryId: { $in: categoryIds } }] : []),
         ...(userIds.length ? [{ userId: { $in: userIds } }] : []),
-        ...(isSearchDate ? [{ preferredDate: { $gte: parsedDate, $lt: nextDay } }] : []),
+        ...(isSearchDate
+          ? [{ preferredDate: { $gte: parsedDate, $lt: nextDay } }]
+          : []),
       ];
     }
 
     if (query.date) {
-      const date    = new Date(query.date);
+      const date = new Date(query.date);
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
       filter.createdAt = { $gte: date, $lt: nextDay };
     }
 
-    const total    = await this.journeyModel.countDocuments(filter);
+    const total = await this.journeyModel.countDocuments(filter);
     const journeys = await this.journeyModel
       .find(filter)
-      .populate('userId',     'name email')
+      .populate('userId', 'name email')
       .populate('categoryId', 'name icon rateActual rateDiscounted')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -288,13 +310,16 @@ export class JourneyService {
     return {
       message: 'Journeys fetched successfully',
       meta: createMeta(page, limit, total),
-      data: { journeys, paginationInfo: createPaginationInfo(page, limit, total) },
+      data: {
+        journeys,
+        paginationInfo: createPaginationInfo(page, limit, total),
+      },
     };
   }
 
   // ─── User: My Journeys ────────────────────────────────
   async getMyJourneys(userId: string, query: GetJourneysQueryDto) {
-    const page  = Number(query.page  || 1);
+    const page = Number(query.page || 1);
     const limit = Number(query.limit || 10);
 
     const filter: any = { userId, paymentStatus: 'PAID' };
@@ -308,7 +333,10 @@ export class JourneyService {
 
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const regex = new RegExp(
+        search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        'i',
+      );
 
       const matchedCategories = await this.categoryModel
         .find({ name: regex })
@@ -324,13 +352,13 @@ export class JourneyService {
     }
 
     if (query.date) {
-      const date    = new Date(query.date);
+      const date = new Date(query.date);
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
       filter.createdAt = { $gte: date, $lt: nextDay };
     }
 
-    const total    = await this.journeyModel.countDocuments(filter);
+    const total = await this.journeyModel.countDocuments(filter);
     const journeys = await this.journeyModel
       .find(filter)
       .populate('categoryId', 'name icon rateActual rateDiscounted')
@@ -341,7 +369,10 @@ export class JourneyService {
     return {
       message: 'Your journeys fetched successfully',
       meta: createMeta(page, limit, total),
-      data: { journeys, paginationInfo: createPaginationInfo(page, limit, total) },
+      data: {
+        journeys,
+        paginationInfo: createPaginationInfo(page, limit, total),
+      },
     };
   }
 
@@ -370,11 +401,15 @@ export class JourneyService {
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Journey Price</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.categoryPrice}</td>
           </tr>
-          ${journey.isLateFeeApplied ? `
+          ${
+            journey.isLateFeeApplied
+              ? `
           <tr style="background:#f3f4f6;">
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Late Fee</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.lateFee}</td>
-          </tr>` : ''}
+          </tr>`
+              : ''
+          }
           <tr style="background:#f3f4f6;">
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Total Paid</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.totalPrice}</td>
