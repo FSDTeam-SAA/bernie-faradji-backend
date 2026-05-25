@@ -7,6 +7,7 @@ import { Journey, JourneyDocument } from './schemas/journey.schema';
 import { Settings, SettingsDocument } from './schemas/settings.schema';
 import { Category, CategoryDocument } from '../category/schemas/category.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
+import { EmailService } from '../../infrastructure/email/email.service';
 import {
   createMeta,
   createPaginationInfo,
@@ -23,18 +24,18 @@ export class JourneyService {
     @InjectModel(Category.name)  private readonly categoryModel: Model<CategoryDocument>,
     @InjectModel(User.name)      private readonly userModel:     Model<UserDocument>,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
 
   // ─── Check Late Fee Logic ──────────────────────────────
-  // late fee applies if preferredDate is today or tomorrow (within 1 day from now)
   private isLateFeeApplicable(preferredDate: Date): boolean {
     const today     = new Date();
     today.setHours(0, 0, 0, 0);
 
     const cutoff    = new Date(today);
-    cutoff.setDate(cutoff.getDate() + 1); // today + 1 day
+    cutoff.setDate(cutoff.getDate() + 1);
 
     const preferred = new Date(preferredDate);
     preferred.setHours(0, 0, 0, 0);
@@ -46,7 +47,6 @@ export class JourneyService {
   async getSettings() {
     let settings = await this.settingsModel.findOne();
     if (!settings) {
-      // auto-create with default 0 if not exists
       settings = await this.settingsModel.create({ lateFee: 0 });
     }
     return { message: 'Settings fetched successfully', data: settings };
@@ -81,7 +81,6 @@ export class JourneyService {
     const totalPrice    = categoryPrice + lateFee;
     const priceInCents  = Math.round(totalPrice * 100);
 
-    // create pending journey record
     const journey = await this.journeyModel.create({
       userId,
       categoryId:       dto.categoryId,
@@ -105,7 +104,6 @@ export class JourneyService {
       },
     ];
 
-    // add late fee as a separate line item if applicable
     if (applyLateFee && lateFee > 0) {
       lineItems.push({
         price_data: {
@@ -154,10 +152,29 @@ export class JourneyService {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
-      await this.journeyModel.findOneAndUpdate(
-        { stripeSessionId: session.id },
-        { paymentStatus: 'PAID' },
-      );
+      const journey = await this.journeyModel
+        .findOneAndUpdate(
+          { stripeSessionId: session.id },
+          { paymentStatus: 'PAID' },
+          { new: true },
+        )
+        .populate('categoryId', 'name');
+
+      // send confirmation email
+      try {
+        if (journey) {
+          const user = await this.userModel.findById(journey.userId);
+          if (user?.email) {
+            await this.emailService.sendEmail({
+              to: user.email,
+              subject: 'Your Journey Pass is Confirmed!',
+              html: this.buildJourneyEmail(user, journey),
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Journey confirmation email failed:', emailError);
+      }
     }
 
     if (
@@ -326,5 +343,45 @@ export class JourneyService {
       meta: createMeta(page, limit, total),
       data: { journeys, paginationInfo: createPaginationInfo(page, limit, total) },
     };
+  }
+
+  // ─── Journey Confirmation Email Template ──────────────
+  private buildJourneyEmail(user: any, journey: any): string {
+    const category = journey.categoryId as any;
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Journey Pass Confirmed! 🚗</h2>
+        <p>Hi <strong>${user.name || 'there'}</strong>,</p>
+        <p>Your journey pass has been successfully confirmed. Here are your details:</p>
+        <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background:#f3f4f6;">
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Journey Type</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">${category?.name || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Vehicle Number</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">${journey.vehicleNumber}</td>
+          </tr>
+          <tr style="background:#f3f4f6;">
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Preferred Date</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">${new Date(journey.preferredDate).toDateString()}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Journey Price</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.categoryPrice}</td>
+          </tr>
+          ${journey.isLateFeeApplied ? `
+          <tr style="background:#f3f4f6;">
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Late Fee</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.lateFee}</td>
+          </tr>` : ''}
+          <tr style="background:#f3f4f6;">
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Total Paid</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.totalPrice}</td>
+          </tr>
+        </table>
+        <p>Thank you for choosing BubbleDrive!</p>
+      </div>
+    `;
   }
 }
