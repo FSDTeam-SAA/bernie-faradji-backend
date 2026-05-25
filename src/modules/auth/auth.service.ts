@@ -61,6 +61,7 @@ export class AuthService {
       data: {
         _id:          user._id,
         name:         user.name,
+        phone:        user.phone,
         email:        user.email,
         role:         user.role,
         profileImage: user.profileImage,
@@ -73,7 +74,7 @@ export class AuthService {
     const user = await this.userModel
       .findOne({ email: normalizedEmail })
       .select(
-        '+password name email username dob vehicleNumber gender role stripeAccountId bio profileImage multiProfileImage pdfFile isVerified isSuspended isSuspend hasActiveSubscription subscriptionExpireDate subscription language',
+        '+password name phone email username dob vehicleNumber gender role stripeAccountId bio profileImage multiProfileImage pdfFile isVerified isSuspended isSuspend hasActiveSubscription subscriptionExpireDate subscription language',
       );
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
@@ -107,6 +108,7 @@ export class AuthService {
         user: {
           _id:                    user._id,
           name:                   user.name,
+          phone:                  user.phone,
           email:                  user.email,
           username:               user.username,
           dob:                    user.dob,

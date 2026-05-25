@@ -20,6 +20,10 @@ export class RegisterDto {
   @IsNotEmpty()
   name: string;
 
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
   @IsEmail()
   @IsNotEmpty()
   email: string;
