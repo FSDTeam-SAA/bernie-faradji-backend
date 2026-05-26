@@ -6,6 +6,7 @@ import {
   IsDateString,
   IsMongoId,
   Min,
+  IsIn,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -19,7 +20,17 @@ export class BuyJourneyPassDto {
 
   @IsDateString()
   preferredDate: string; // e.g. "2026-05-14"
+  @IsOptional()
+  @IsString()
+  subOption?: string; // e.g. 'Blackwall' or 'Silvertown'
+ 
+  @IsOptional()
+  @IsString()
+  @IsIn(['one-way', 'return'])
+  journeyType?: string; // default: 'one-way'
 }
+
+
 
 export class UpdateLateFeeDto {
   @Transform(({ value }) => parseFloat(value))

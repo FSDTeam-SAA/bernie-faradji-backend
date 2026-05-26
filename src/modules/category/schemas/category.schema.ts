@@ -18,6 +18,12 @@ export class Category {
   @Prop({ default: '' })
   icon: string;
 
+  @Prop({ type: [String], default: [] })
+  subOptions: string[]; // e.g. ['Blackwall', 'Silvertown']
+
+  @Prop({ default: 0 })
+  returnPrice: number; // admin sets return journey price, 0 = price x2
+
   @Prop({ default: true })
   isActive: boolean;
 }

@@ -71,78 +71,93 @@ export class JourneyService {
     return { message: 'Late fee updated successfully', data: settings };
   }
 
-  // ─── User: Buy Journey Pass → Stripe Checkout ─────────
+   // ─── User: Buy Journey Pass → Stripe Checkout ─────────
   async buyPass(userId: string, dto: BuyJourneyPassDto) {
     const user = await this.userModel.findById(userId);
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-
+ 
     const category = await this.categoryModel.findById(dto.categoryId);
-    if (!category)
-      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-
-    const settings = await this.settingsModel.findOne();
+    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+ 
+    const settings      = await this.settingsModel.findOne();
     const lateFeeAmount = settings?.lateFee || 0;
-
-    const applyLateFee = this.isLateFeeApplicable(new Date(dto.preferredDate));
-    const lateFee = applyLateFee ? lateFeeAmount : 0;
-    const categoryPrice =
-      category.rateDiscounted > 0
-        ? category.rateDiscounted
-        : category.rateActual;
-    const totalPrice = categoryPrice + lateFee;
-    const priceInCents = Math.round(totalPrice * 100);
-
+ 
+    const applyLateFee  = this.isLateFeeApplicable(new Date(dto.preferredDate));
+    const lateFee       = applyLateFee ? lateFeeAmount : 0;
+    const basePrice     = category.rateDiscounted > 0 ? category.rateDiscounted : category.rateActual;
+    const journeyType   = dto.journeyType || 'one-way';
+ 
+    // calculate category price based on journey type
+    let categoryPrice: number;
+    if (journeyType === 'return') {
+      categoryPrice = (category as any).returnPrice > 0
+        ? (category as any).returnPrice
+        : basePrice * 2;
+    } else {
+      categoryPrice = basePrice;
+    }
+ 
+    const totalPrice    = categoryPrice + lateFee;
+    const priceInCents  = Math.round(totalPrice * 100);
+ 
     const journey = await this.journeyModel.create({
       userId,
-      categoryId: dto.categoryId,
-      vehicleNumber: dto.vehicleNumber,
-      preferredDate: new Date(dto.preferredDate),
+      categoryId:       dto.categoryId,
+      vehicleNumber:    dto.vehicleNumber,
+      preferredDate:    new Date(dto.preferredDate),
+      subOption:        dto.subOption || null,
+      journeyType,
       categoryPrice,
       lateFee,
       totalPrice,
       isLateFeeApplied: applyLateFee,
-      paymentStatus: 'PENDING',
+      paymentStatus:    'PENDING',
     });
-
+ 
     const lineItems: any[] = [
       {
         price_data: {
-          currency: 'gbp',
-          product_data: { name: category.name, description: dto.vehicleNumber },
-          unit_amount: Math.round(categoryPrice * 100),
+          currency:     'gbp',
+          product_data: {
+            name:        `${category.name} (${journeyType === 'return' ? 'Return' : 'One-Way'})`,
+            description: dto.subOption
+              ? `${dto.vehicleNumber} — ${dto.subOption}`
+              : dto.vehicleNumber,
+          },
+          unit_amount:  Math.round(categoryPrice * 100),
         },
         quantity: 1,
       },
     ];
-
+ 
     if (applyLateFee && lateFee > 0) {
       lineItems.push({
         price_data: {
-          currency: 'gbp',
+          currency:     'gbp',
           product_data: { name: 'Late Booking Fee' },
-          unit_amount: Math.round(lateFee * 100),
+          unit_amount:  Math.round(lateFee * 100),
         },
         quantity: 1,
       });
     }
-
+ 
     const session = await this.stripe.checkout.sessions.create({
-      mode: 'payment',
+      mode:                 'payment',
       payment_method_types: ['card'],
-      customer_email: user.email,
-      line_items: lineItems,
+      customer_email:       user.email,
+      line_items:           lineItems,
       metadata: {
-        userId: userId.toString(),
+        userId:    userId.toString(),
         journeyId: journey._id.toString(),
       },
       success_url: `${this.configService.get('app.frontendUrl')}/payment-success`,
-      cancel_url: `${this.configService.get('app.frontendUrl')}/payment-cancel`,
+      cancel_url:  `${this.configService.get('app.frontendUrl')}/payment-cancel`,
     });
-
+ 
     await this.journeyModel.findByIdAndUpdate(journey._id, {
       stripeSessionId: session.id,
     });
-
+ 
     return { message: 'Checkout session created', data: { url: session.url } };
   }
 
@@ -376,6 +391,7 @@ export class JourneyService {
     };
   }
 
+ 
   // ─── Journey Confirmation Email Template ──────────────
   private buildJourneyEmail(user: any, journey: any): string {
     const category = journey.categoryId as any;
@@ -389,6 +405,15 @@ export class JourneyService {
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Journey Type</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">${category?.name || 'N/A'}</td>
           </tr>
+          ${journey.subOption ? `
+          <tr>
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Route</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">${journey.subOption}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Trip Type</strong></td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">${journey.journeyType === 'return' ? 'Return' : 'One-Way'}</td>
+          </tr>
           <tr>
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Vehicle Number</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">${journey.vehicleNumber}</td>
@@ -401,15 +426,11 @@ export class JourneyService {
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Journey Price</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.categoryPrice}</td>
           </tr>
-          ${
-            journey.isLateFeeApplied
-              ? `
+          ${journey.isLateFeeApplied ? `
           <tr style="background:#f3f4f6;">
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Late Fee</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.lateFee}</td>
-          </tr>`
-              : ''
-          }
+          </tr>` : ''}
           <tr style="background:#f3f4f6;">
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Total Paid</strong></td>
             <td style="padding:10px; border:1px solid #e5e7eb;">£${journey.totalPrice}</td>
