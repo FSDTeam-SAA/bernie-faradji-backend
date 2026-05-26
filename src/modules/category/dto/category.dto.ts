@@ -3,8 +3,26 @@ import {
   IsNotEmpty,
   IsOptional,
   IsBoolean,
+  IsArray,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+
+const parseStringArray = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : value;
+  } catch {
+    return trimmed.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+};
 
 export class CreateCategoryDto {
   @IsString()
@@ -16,11 +34,27 @@ export class CreateCategoryDto {
   shortDetails?: string;
 
   @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
   rateActual: number;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
   rateDiscounted?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
+  returnPrice?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => parseStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  subOptions?: string[]; // e.g. ['Blackwall', 'Silvertown']
 }
 
 export class UpdateCategoryDto {
@@ -35,11 +69,27 @@ export class UpdateCategoryDto {
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
   rateActual?: number;
 
   @IsOptional()
   @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
   rateDiscounted?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsNumber()
+  @Min(0)
+  returnPrice?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => parseStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
+  subOptions?: string[];
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
