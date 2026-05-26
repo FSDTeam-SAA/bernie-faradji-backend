@@ -16,7 +16,13 @@ export class Journey {
   preferredDate: Date;
 
   @Prop({ required: true })
-  categoryPrice: number; // snapshot of category price at time of purchase
+  categoryPrice: number;
+
+  @Prop({ default: null })
+  subOption: string | null;
+
+  @Prop({ enum: ['one-way', 'return'], default: 'one-way' })
+  journeyType: string;
 
   @Prop({ default: 0 })
   lateFee: number; // 0 if no late fee applied
