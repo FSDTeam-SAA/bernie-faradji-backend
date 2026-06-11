@@ -1,32 +1,22 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService implements OnModuleInit {
-  private transporter: Transporter;
+  private resend: Resend;
   private readonly logger = new Logger(EmailService.name);
 
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    const port = this.configService.get<number>('email.port', 587);
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('email.host'),
-      port,
-      secure: port === 465,
-      auth: {
-        user: this.configService.get<string>('email.address'),
-        pass: this.configService.get<string>('email.pass'),
-      },
-    });
+    this.resend = new Resend(this.configService.get<string>('email.resendApiKey'));
   }
 
   async sendOtpEmail(to: string, otp: string): Promise<void> {
     try {
-      await this.transporter.sendMail({
-        from: `"App" <${this.configService.get<string>('email.from')}>`,
+      await this.resend.emails.send({
+        from: `"Bubble Drive" <${this.configService.get<string>('email.from')}>`,
         to,
         subject: 'Password Reset OTP',
         html: this.otpTemplate(otp),
@@ -39,8 +29,8 @@ export class EmailService implements OnModuleInit {
 
   async sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
     try {
-      await this.transporter.sendMail({
-        from: `"App" <${this.configService.get<string>('email.from')}>`,
+      await this.resend.emails.send({
+        from: `"Bubble Drive" <${this.configService.get<string>('email.from')}>`,
         ...options,
       });
     } catch (error) {
@@ -69,7 +59,7 @@ export class EmailService implements OnModuleInit {
           <p>This code expires in <strong>15 minutes</strong>.</p>
           <p>If you did not request this, please ignore this email.</p>
         </div>
-        <div class="footer">© ${new Date().getFullYear()} Your App. All rights reserved.</div>
+        <div class="footer">&copy; ${new Date().getFullYear()} Bubble Drive. All rights reserved.</div>
       </div></body></html>`;
   }
 }
