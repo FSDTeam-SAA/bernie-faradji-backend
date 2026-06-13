@@ -19,7 +19,7 @@ export class EmailService implements OnModuleInit {
         from: `"Bubble Drive" <${this.configService.get<string>('email.from')}>`,
         to,
         subject: 'Password Reset OTP',
-        html: this.otpTemplate(otp),
+        html: this.addContactFooter(this.otpTemplate(otp)),
       });
     } catch (error) {
       this.logger.error('Failed to send OTP email', error);
@@ -29,15 +29,24 @@ export class EmailService implements OnModuleInit {
 
   async sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
     try {
-      await this.resend.emails.send({
-        from: `"Bubble Drive" <${this.configService.get<string>('email.from')}>`,
-        ...options,
-      });
+     await this.resend.emails.send({
+  from: `"Bubble Drive" <${this.configService.get<string>('email.from')}>`,
+  ...options,
+  html: this.addContactFooter(options.html),
+});
     } catch (error) {
       this.logger.error('Failed to send email', error);
       throw error;
     }
   }
+  private addContactFooter(html: string): string {
+  return `
+    ${html}
+    <p style="margin-top: 20px; color: #6b7280; font-size: 13px; text-align: center;">
+      For help, contact us on +447497791686.
+    </p>
+  `;
+}
 
   private otpTemplate(otp: string): string {
     return `
