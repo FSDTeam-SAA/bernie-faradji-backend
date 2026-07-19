@@ -39,33 +39,55 @@ export class JourneyService {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
 
-  // ─── Check Late Fee Logic ──────────────────────────────
-  private isLateFeeApplicable(preferredDate: Date): boolean {
+    // ─── Calculate days behind (0 = today/future, 1/2/3+ = past) ──
+  private getDaysBehind(preferredDate: Date): number {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+ 
     const preferred = new Date(preferredDate);
     preferred.setHours(0, 0, 0, 0);
-
-    return preferred < today; // only past dates get late fee
+ 
+    const diffMs   = today.getTime() - preferred.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+ 
+    return diffDays; // 0 = today or future, 1 = yesterday, 2 = 2 days ago, etc.
   }
 
+  // ─── Get late fee amount based on days behind ──────────
+  private getLateFeeAmount(daysBehind: number, settings: any): number {
+    if (daysBehind <= 0) return 0;       // today or future — no late fee
+    if (daysBehind === 1) return settings.lateFee1 || 0;
+    if (daysBehind === 2) return settings.lateFee2 || 0;
+    return settings.lateFee3 || 0;       // 3+ days behind
+  }
+
+  // ─── Get Current Settings (late fee) ──────────────────
   // ─── Get Current Settings (late fee) ──────────────────
   async getSettings() {
     let settings = await this.settingsModel.findOne();
     if (!settings) {
-      settings = await this.settingsModel.create({ lateFee: 0 });
+      settings = await this.settingsModel.create({
+        lateFee1: 0,
+        lateFee2: 0,
+        lateFee3: 0,
+      });
     }
     return { message: 'Settings fetched successfully', data: settings };
   }
 
   // ─── Admin: Update Late Fee ────────────────────────────
-  async updateLateFee(dto: UpdateLateFeeDto) {
+   async updateLateFee(dto: UpdateLateFeeDto) {
     let settings = await this.settingsModel.findOne();
     if (!settings) {
-      settings = await this.settingsModel.create({ lateFee: dto.lateFee });
+      settings = await this.settingsModel.create({
+        lateFee1: dto.lateFee1,
+        lateFee2: dto.lateFee2,
+        lateFee3: dto.lateFee3,
+      });
     } else {
-      settings.lateFee = dto.lateFee;
+      settings.lateFee1 = dto.lateFee1;
+      settings.lateFee2 = dto.lateFee2;
+      settings.lateFee3 = dto.lateFee3;
       await settings.save();
     }
     return { message: 'Late fee updated successfully', data: settings };
@@ -79,15 +101,16 @@ export class JourneyService {
     const category = await this.categoryModel.findById(dto.categoryId);
     if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
  
-    const settings      = await this.settingsModel.findOne();
-    const lateFeeAmount = settings?.lateFee || 0;
+    const settings   = await this.settingsModel.findOne();
+    const daysBehind = this.getDaysBehind(new Date(dto.preferredDate));
  
-    const applyLateFee  = this.isLateFeeApplicable(new Date(dto.preferredDate));
-    const lateFee       = applyLateFee ? lateFeeAmount : 0;
-    const basePrice     = category.rateDiscounted > 0 ? category.rateDiscounted : category.rateActual;
-    const journeyType   = dto.journeyType || 'one-way';
+    // only apply late fee if category has hasLateFee enabled
+    const lateFee      = (category as any).hasLateFee ? this.getLateFeeAmount(daysBehind, settings) : 0;
+    const applyLateFee = lateFee > 0;
  
-    // calculate category price based on journey type
+    const basePrice   = category.rateDiscounted > 0 ? category.rateDiscounted : category.rateActual;
+    const journeyType = dto.journeyType || 'one-way';
+ 
     let categoryPrice: number;
     if (journeyType === 'return') {
       categoryPrice = (category as any).returnPrice > 0
@@ -97,8 +120,7 @@ export class JourneyService {
       categoryPrice = basePrice;
     }
  
-    const totalPrice    = categoryPrice + lateFee;
-    const priceInCents  = Math.round(totalPrice * 100);
+    const totalPrice = categoryPrice + lateFee;
  
     const journey = await this.journeyModel.create({
       userId,
@@ -117,14 +139,14 @@ export class JourneyService {
     const lineItems: any[] = [
       {
         price_data: {
-          currency:     'gbp',
+          currency: 'gbp',
           product_data: {
-            name:        `${category.name} (${journeyType === 'return' ? 'Return' : 'One-Way'})`,
+            name: `${category.name} (${journeyType === 'return' ? 'Return' : 'One-Way'})`,
             description: dto.subOption
               ? `${dto.vehicleNumber} — ${dto.subOption}`
               : dto.vehicleNumber,
           },
-          unit_amount:  Math.round(categoryPrice * 100),
+          unit_amount: Math.round(categoryPrice * 100),
         },
         quantity: 1,
       },
@@ -133,9 +155,9 @@ export class JourneyService {
     if (applyLateFee && lateFee > 0) {
       lineItems.push({
         price_data: {
-          currency:     'gbp',
-          product_data: { name: 'Late Booking Fee' },
-          unit_amount:  Math.round(lateFee * 100),
+          currency: 'gbp',
+          product_data: { name: `Late Booking Fee (${daysBehind} day${daysBehind > 1 ? 's' : ''} behind)` },
+          unit_amount: Math.round(lateFee * 100),
         },
         quantity: 1,
       });
