@@ -6,8 +6,8 @@ export class Journey {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
-  categoryId: Types.ObjectId;
+    @Prop({ type: Types.ObjectId, ref: 'Category', default: null })
+  categoryId: Types.ObjectId | null;
 
   @Prop({ required: true })
   vehicleNumber: string;
@@ -32,6 +32,9 @@ export class Journey {
 
   @Prop({ default: false })
   isLateFeeApplied: boolean;
+
+  @Prop({ default: false })
+  isLateFeeOnly: boolean; 
 
   @Prop({ default: 'PENDING' }) // PENDING | PAID | FAILED
   paymentStatus: string;

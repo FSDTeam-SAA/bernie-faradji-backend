@@ -48,7 +48,7 @@ export class SubscriptionService {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: 'gbp',
             product_data: {
               name: plan.title || plan.planName,
               description: plan.billingCycle.toUpperCase(),
@@ -247,7 +247,7 @@ if (cycle === 'yearly') {
           </tr>
           <tr style="background:#f3f4f6;">
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Price</strong></td>
-            <td style="padding:10px; border:1px solid #e5e7eb;">$${plan.price}</td>
+            <td style="padding:10px; border:1px solid #e5e7eb;">&#163;${plan.price}</td>
           </tr>
           <tr>
             <td style="padding:10px; border:1px solid #e5e7eb;"><strong>Start Date</strong></td>

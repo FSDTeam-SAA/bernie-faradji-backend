@@ -30,13 +30,31 @@ export class BuyJourneyPassDto {
   journeyType?: string; // default: 'one-way'
 }
 
-
+export class PayLateFeeDto {
+  @IsString()
+  @IsNotEmpty()
+  vehicleNumber: string;
+ 
+  @IsDateString()
+  preferredDate: string; // must be a past date
+}
+ 
 
 export class UpdateLateFeeDto {
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
-  lateFee: number;
+  lateFee1: number; // 1 day behind
+ 
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0)
+  lateFee2: number; // 2 days behind
+ 
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0)
+  lateFee3: number; // 3+ days behind
 }
 
 export class GetJourneysQueryDto {

@@ -54,7 +54,12 @@ export class CreateCategoryDto {
   @Transform(({ value }) => parseStringArray(value))
   @IsArray()
   @IsString({ each: true })
-  subOptions?: string[]; // e.g. ['Blackwall', 'Silvertown']
+  subOptions?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  hasLateFee?: boolean; // ← INSIDE the class now
 }
 
 export class UpdateCategoryDto {
@@ -90,6 +95,11 @@ export class UpdateCategoryDto {
   @IsArray()
   @IsString({ each: true })
   subOptions?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  hasLateFee?: boolean; // ← added here too
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

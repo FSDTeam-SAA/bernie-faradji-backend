@@ -1,9 +1,6 @@
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('email', () => ({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || '587', 10),
-  address: process.env.EMAIL_ADDRESS,
-  pass: process.env.EMAIL_PASS,
+  resendApiKey: process.env.RESEND_API_KEY,
   from: process.env.EMAIL_FROM,
 }));

@@ -24,6 +24,10 @@ export class Category {
   @Prop({ default: 0 })
   returnPrice: number; // admin sets return journey price, 0 = price x2
 
+   @Prop({ default: false })
+  hasLateFee: boolean;
+  
+  // admin toggles — true = late fee applies, false = no late fee
   @Prop({ default: true })
   isActive: boolean;
 }
