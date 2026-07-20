@@ -30,7 +30,15 @@ export class BuyJourneyPassDto {
   journeyType?: string; // default: 'one-way'
 }
 
-
+export class PayLateFeeDto {
+  @IsString()
+  @IsNotEmpty()
+  vehicleNumber: string;
+ 
+  @IsDateString()
+  preferredDate: string; // must be a past date
+}
+ 
 
 export class UpdateLateFeeDto {
   @Transform(({ value }) => parseFloat(value))
