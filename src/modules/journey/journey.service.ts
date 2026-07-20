@@ -17,6 +17,7 @@ import {
 } from '../../common/utils/pagination.util';
 import {
   BuyJourneyPassDto,
+  PayLateFeeDto,
   UpdateLateFeeDto,
   GetJourneysQueryDto,
 } from './dto/journey.dto';
@@ -92,6 +93,68 @@ export class JourneyService {
     }
     return { message: 'Late fee updated successfully', data: settings };
   }
+
+    // ─── User: Pay Late Fee Only (no category) ────────────
+  async payLateFeeOnly(userId: string, dto: PayLateFeeDto) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+ 
+    const daysBehind = this.getDaysBehind(new Date(dto.preferredDate));
+    if (daysBehind <= 0) {
+      throw new HttpException('Late fee only applies to past dates', HttpStatus.BAD_REQUEST);
+    }
+ 
+    const settings = await this.settingsModel.findOne();
+    const lateFee  = this.getLateFeeAmount(daysBehind, settings);
+ 
+    if (lateFee <= 0) {
+      throw new HttpException('No late fee configured for this date', HttpStatus.BAD_REQUEST);
+    }
+ 
+    const journey = await this.journeyModel.create({
+      userId,
+      categoryId:       null,
+      vehicleNumber:    dto.vehicleNumber,
+      preferredDate:    new Date(dto.preferredDate),
+      categoryPrice:    0,
+      lateFee,
+      totalPrice:       lateFee,
+      isLateFeeApplied: true,
+      isLateFeeOnly:    true,
+      paymentStatus:    'PENDING',
+    });
+ 
+    const session = await this.stripe.checkout.sessions.create({
+      mode:                 'payment',
+      payment_method_types: ['card'],
+      customer_email:       user.email,
+      line_items: [
+        {
+          price_data: {
+            currency:     'gbp',
+            product_data: {
+              name:        `Late Booking Fee (${daysBehind} day${daysBehind > 1 ? 's' : ''} behind)`,
+              description: dto.vehicleNumber,
+            },
+            unit_amount: Math.round(lateFee * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        userId:       userId.toString(),
+        journeyId:    journey._id.toString(),
+        isLateFeeOnly: 'true',
+      },
+      success_url: `${this.configService.get('app.frontendUrl')}/payment-success`,
+      cancel_url:  `${this.configService.get('app.frontendUrl')}/payment-cancel`,
+    });
+ 
+    await this.journeyModel.findByIdAndUpdate(journey._id, { stripeSessionId: session.id });
+ 
+    return { message: 'Late fee checkout session created', data: { url: session.url } };
+  }
+ 
 
    // ─── User: Buy Journey Pass → Stripe Checkout ─────────
   async buyPass(userId: string, dto: BuyJourneyPassDto) {
@@ -184,25 +247,23 @@ export class JourneyService {
   }
 
   // ─── Stripe Webhook ────────────────────────────────────
+   // ─── Stripe Webhook ────────────────────────────────────
   async handleWebhook(rawBody: Buffer, signature: string) {
     let event: any;
-
+ 
     try {
       event = this.stripe.webhooks.constructEvent(
-        rawBody,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET_JOURNEY,
+        rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET_JOURNEY,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new HttpException(
-        `Webhook Error: ${message}`,
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException(`Webhook Error: ${message}`, HttpStatus.BAD_REQUEST);
     }
-
+ 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as any;
+      const session      = event.data.object as any;
+      const isLateFeeOnly = session.metadata?.isLateFeeOnly === 'true';
+ 
       const journey = await this.journeyModel
         .findOneAndUpdate(
           { stripeSessionId: session.id },
@@ -210,24 +271,24 @@ export class JourneyService {
           { new: true },
         )
         .populate('categoryId', 'name');
-
-      // send confirmation email
-      try {
-        if (journey) {
+ 
+      // only send email for normal journey (not late-fee-only)
+      if (!isLateFeeOnly && journey) {
+        try {
           const user = await this.userModel.findById(journey.userId);
           if (user?.email) {
             await this.emailService.sendEmail({
-              to: user.email,
+              to:      user.email,
               subject: 'Your Journey Pass is Confirmed!',
-              html: this.buildJourneyEmail(user, journey),
+              html:    this.buildJourneyEmail(user, journey),
             });
           }
+        } catch (emailError) {
+          console.error('Journey confirmation email failed:', emailError);
         }
-      } catch (emailError) {
-        console.error('Journey confirmation email failed:', emailError);
       }
     }
-
+ 
     if (
       event.type === 'checkout.session.expired' ||
       event.type === 'payment_intent.payment_failed'
@@ -238,10 +299,10 @@ export class JourneyService {
         { paymentStatus: 'FAILED' },
       );
     }
-
+ 
     return { received: true };
   }
-
+  
   // ─── Admin: Get Single Journey ────────────────────────
   async getOne(id: string) {
     const journey = await this.journeyModel

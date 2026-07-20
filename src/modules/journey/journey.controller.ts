@@ -21,7 +21,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RoleType } from '../../common/enums/role.enum';
-import { BuyJourneyPassDto, UpdateLateFeeDto, GetJourneysQueryDto } from './dto/journey.dto';
+import { BuyJourneyPassDto, UpdateLateFeeDto, GetJourneysQueryDto, PayLateFeeDto } from './dto/journey.dto';
 
 @Controller('journeys')
 @UseGuards(JwtAuthGuard)
@@ -54,6 +54,17 @@ export class JourneyController {
     @Body() dto: BuyJourneyPassDto,
   ) {
     return this.journeyService.buyPass(userId, dto);
+  }
+
+
+    // ─── User: Pay Late Fee Only (no category) ────────────
+  @Post('pay-late-fee')
+  @HttpCode(HttpStatus.OK)
+  payLateFeeOnly(
+    @CurrentUser('_id') userId: string,
+    @Body() dto: PayLateFeeDto,
+  ) {
+    return this.journeyService.payLateFeeOnly(userId, dto);
   }
 
   // ─── User: My Journey History ─────────────────────────
