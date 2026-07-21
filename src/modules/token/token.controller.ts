@@ -2,7 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
+  Param,
   Query,
   UseGuards,
   Headers,
@@ -73,6 +75,14 @@ export class TokenController {
   @Get('all')
   getAllTokens(@Query() query: GetTokensQueryDto) {
     return this.tokenService.getAllTokens(query);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  remove(@Param('id') id: string) {
+    return this.tokenService.remove(id);
   }
 
   // ─── Admin: Auto Select Winner ────────────────────────
