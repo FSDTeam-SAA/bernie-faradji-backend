@@ -206,6 +206,18 @@ export class TokenService {
     };
   }
 
+  async remove(id: string) {
+    const token = await this.tokenModel.findById(id);
+    if (!token) {
+      throw new HttpException('Token purchase not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.winnerModel.deleteMany({ tokenId: token._id });
+    await this.tokenModel.findByIdAndDelete(id);
+
+    return { message: 'Token purchase deleted successfully', data: null };
+  }
+
   // ─── Admin: Get All Token Purchases ───────────────────
   async getAllTokens(query: GetTokensQueryDto) {
     const page = Number(query.page || 1);
